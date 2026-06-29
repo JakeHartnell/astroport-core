@@ -8,13 +8,14 @@ table is wrong — fix it.
 
 | Path | Role | Notes |
 |---|---|---|
-| `contracts/factory` | Pool creation + registry | `whitelist_code_id` non-optional — see whitelist note below. `generator_address: None` in v1 (no incentives). |
+| `contracts/factory` | Pool creation + registry | `whitelist_code_id` non-optional — see whitelist note below. `generator_address` points at `contracts/tokenomics/incentives` once incentives are instantiated. |
 | `contracts/pair` | XYK constant-product AMM | Receives `pool_unpause_at` patch in P2. LP token is TokenFactory-native (no cw20 LP code path in v5.13.1). |
 | `contracts/router` | Multi-hop swap composition | XYK-only routing in v1. Dev-deps on `pair_concentrated` will be removed in P0. |
 | `contracts/whitelist` | cw1-style permissioned-pair gate | Neutron-stripped in P0 (drops `neutron-sdk`, `NeutronMsg`, `sudo` entry, `src/ibc.rs`). See `03-whitelist-decision.md`. |
 | `contracts/periphery/native_coin_registry` | Native-denom precision oracle | Required by factory; v1 seeds with `ujuno` + canonical IBC denoms. |
 | `contracts/periphery/oracle` | Per-pair TWAP | Uploaded but not auto-instantiated. UI uses for price charts. 1-day hardcoded window. |
 | `contracts/periphery/tokenfactory_tracker` | TF snapshot tracker | Uploaded, dormant in v1. Wakes up when a pair sets `track_asset_balances: true`. |
+| `contracts/tokenomics/incentives` | LP reward distributor | Re-added in P2.5 for DAO-funded `ujuno` emissions plus permissionless external cw20/native rewards; no DEX token, no vesting, no staking. See `11-incentives-and-gauges.md` and ADR D6. |
 | `packages/astroport` | Wire-type + helper crate | Most modules kept; chain-specific modules removed (see "Pruned modules" below). |
 | `packages/astroport_test` | cw-multi-test harness | Injective feature branches stripped. |
 
@@ -39,7 +40,7 @@ audit-delta cycle, not a re-fork from upstream.
 | `contracts/pair_transmuter` | 1:1 constant-sum. Niche. Defer indefinitely. |
 | `contracts/pair_xyk_sale_tax` | XYK with sale tax. cw-abc graduation handles meme-launch flow orthogonally. |
 | `contracts/pair_concentrated_sale_tax` | PCL with sale tax. Same reason. |
-| `contracts/tokenomics/` (entire subtree) | No DEX token in v1 — no incentives, maker fee collector, xASTRO staking, vesting, or xastro_token. |
+| `contracts/tokenomics/maker`, `contracts/tokenomics/staking`, `contracts/tokenomics/vesting`, `contracts/tokenomics/xastro_token` | No DEX token in v1 — no maker fee collector, xASTRO staking, vesting, or xASTRO token. `contracts/tokenomics/incentives` is the only tokenomics contract re-added for Juno v1. |
 | `contracts/periphery/astro_converter` | Terra-specific cw20→TF converter. |
 | `contracts/periphery/astro_converter_neutron` | Neutron outpost of above. |
 | `e2e/` | TypeScript e2e harness bound to localterra-1 + localneutron-1 via feather.js. Juno-incompatible without a full rewrite. |
@@ -82,7 +83,8 @@ astroport_native_coin_registry.wasm
 astroport_oracle.wasm
 astroport_tokenfactory_tracker.wasm
 astroport_whitelist.wasm
+astroport_incentives.wasm
 ```
 
-7 wasms. Each must pass `cosmwasm-check --available-capabilities staking,cosmwasm_1_1,cosmwasm_2_0,iterator,stargate`
+8 wasms. Each must pass `cosmwasm-check --available-capabilities staking,cosmwasm_1_1,cosmwasm_2_0,iterator,stargate`
 (no `neutron` capability).

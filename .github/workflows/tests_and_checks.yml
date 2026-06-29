@@ -22,6 +22,25 @@ jobs:
 
       - name: Checkout sources
         uses: actions/checkout@v4
+
+      - name: Check Juno v1 launch guards
+        run: |
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_scope.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_schemas.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_deployment_template.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_tx_extractor.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_deployment_command.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_operator_checklist.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_dry_run_txs.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_deployment_gitignore.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_deployment_readme.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_frontend_config.py
+          python3 $GITHUB_WORKSPACE/scripts/generate_juno_v1_frontend_types.py --check
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_frontend_example.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_frontend_handoff_sync.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_frontend_release_checklist.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_ci_wiring.py
+
       - uses: actions/cache@v4
         if: always()
         with:
@@ -57,5 +76,6 @@ jobs:
       - name: Generate and check schemas
         run: |
           $GITHUB_WORKSPACE/scripts/build_schemas.sh
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_schemas.py
           git add -A $GITHUB_WORKSPACE/schemas # consider new contract schemas
           git diff-index --cached HEAD --exit-code --

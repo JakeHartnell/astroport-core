@@ -20,3 +20,5 @@ target/
 /artifacts/
 /contracts/**/schema/
 /e2e/config.json
+/deployment/tx/
+/deployment/juno-v1-testnet.json

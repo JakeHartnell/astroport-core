@@ -1,7 +1,9 @@
 # 04 — Incentives types-only retention (ADR D1)
 
-**Status:** decided 2026-05-13. Keep `packages/astroport/src/incentives.rs`
-as a types-only module. Do not refactor the factory's import of it.
+**Status:** superseded by P2.5 / ADR D6. This ADR records the earlier rc0/rc1
+reason for keeping `packages/astroport/src/incentives.rs` while the incentives
+contract was stripped. Juno v1 now ships a stripped `contracts/tokenomics/incentives`
+contract; see `11-incentives-and-gauges.md` and `12-incentives-strip-decisions.md`.
 
 ## Problem
 
@@ -10,9 +12,10 @@ as a types-only module. Do not refactor the factory's import of it.
 this message when a pair is deactivated and the factory has a
 `generator_address: Some(_)` configured.
 
-In v1 we ship `generator_address: None` (no incentives, no DEX token, see
-`memory/juno-defi-direction.md`). The code path that constructs the
-`DeactivatePool` message is unreachable.
+In rc0/rc1 we shipped `generator_address: None` (no incentives, no DEX token,
+see `memory/juno-defi-direction.md`). The code path that constructs the
+`DeactivatePool` message was unreachable at that boundary. In P2.5, incentives
+returned to v1 scope without adding a DEX token.
 
 But: `packages/astroport/src/incentives.rs` defines the type. If we delete
 that module, the factory no longer compiles.
@@ -42,36 +45,39 @@ Two sub-options:
 
 Both larger diffs than (a) and worse on every axis.
 
-## Decision
+## Decision at rc0/rc1
 
 Option (a). Keep `packages/astroport/src/incentives.rs` exactly as upstream.
 Keep `pub mod incentives;` in `src/lib.rs`. The factory's import line at
 `contracts/factory/src/contract.rs:19` stays untouched.
 
-## What changes in the strip
+## What changed in the rc0/rc1 strip
 
-- The `contracts/tokenomics/incentives` *contract* is deleted (it implements
-  the incentives state machine; we don't ship it).
+- The `contracts/tokenomics/incentives` *contract* was deleted at rc0/rc1 (it
+  implements the incentives state machine; we did not ship it at that boundary).
 - The `astroport::incentives` *types module* in `packages/astroport` stays.
 
+P2.5 supersedes the first bullet: `contracts/tokenomics/incentives` is now a
+workspace member again, with Juno-specific strips documented in ADR D6.
+
 The factory imports `astroport::incentives::ExecuteMsg::DeactivatePool` —
-the *type*, not the contract. Type stays; contract goes.
+the *type*, not the contract binary. Type stays; the stripped incentives
+contract now ships separately as a v1 workspace member.
 
 ## How to apply this in audit narrative
 
 In `planning/07-audit-scope.md`, the audit-house brief should state:
 
 > The `astroport::incentives` module in `packages/astroport` is retained as
-> a wire-type declaration only. The corresponding `tokenomics/incentives`
-> contract is not shipped. The factory's single import-site of this type is
-> in a `generator_address: Some(_)` branch that is never reached in v1
-> deployments (factory is instantiated with `generator_address: None`).
-> Treat the import as dead code; treat the type module as a JSON schema
-> artifact, not a contract surface.
+> the canonical wire-type surface for both the factory deactivation hook and
+> the shipped `contracts/tokenomics/incentives` contract. In rc0/rc1 the
+> module was types-only because the contract was out of scope; P2.5 re-added
+> the stripped incentives contract. Audit the type module together with the
+> incentives contract and confirm factory `DeactivatePool` messages still
+> match the shipped execute schema.
 
-## Future shape
+## Current shape after P2.5
 
-When v2 brings incentives: ship a new `astroport-incentives` contract built
-from upstream Astroport's reference impl, instantiate it, set
-`factory.generator_address: Some(addr)`. Factory's existing
-`DeactivatePool` import-site activates with no factory change required.
+Juno v1 ships `astroport-incentives` as a bounded LP rewards contract: DAO-funded
+internal rewards, permissionless external incentives, no vesting contract, no
+xASTRO staking, no maker, and no new DEX token.

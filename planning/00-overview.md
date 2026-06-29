@@ -78,6 +78,31 @@ Three diffs to the AI audit; one mechanical (A), two functional (B, C). See
 | `10-open-questions.md` | Running list. |
 | `11-incentives-and-gauges.md` | (P2.5) Re-introduce `astroport-incentives`; bind to DAO DAO gauge for community-voted emissions; permissionless external incentives. |
 | `12-incentives-strip-decisions.md` | (P2.5) ADR D6 — per-decision rationale for the rc1→rc2 strip (vesting, cw20 axes, naming, MAX_REWARD_TOKENS, generator_controller, bech32 test mode). |
+| `13-scope-guard-verification-2026-06-28.md` | Scope guard verification notes for the Juno v1 contract set. |
+| `14-schema-scope-guard-2026-06-28.md` | Schema pruning and schema-set guard notes. |
+| `15-juno-v1-guard-readiness-2026-06-29.md` | Readiness check notes for the Juno v1 guards. |
+| `16-ci-artifact-guard-2026-06-29.md` | CI artifact-set guard notes for optimized wasm output. |
+| `17-frontend-schema-surface-2026-06-29.md` | Frontend integration map generated from committed v1 JSON schemas. |
+| `18-deployment-template-guard-2026-06-29.md` | Testnet deployment config template and schema-derived guard. |
+| `19-ci-deployment-template-guard-2026-06-29.md` | CI wiring for the deployment template guard. |
+| `20-ci-wiring-guard-2026-06-29.md` | Dependency-free guard that verifies the Juno v1 CI guard ordering. |
+| `21-deployment-fill-script-2026-06-29.md` | Renderer for turning the uni-7 deployment template into a concrete config once code IDs/addresses are known. |
+| `22-deployment-readme-2026-06-29.md` | Operator/frontend handoff README for filling and validating uni-7 deployment config values. |
+| `23-tx-json-extraction-helper-2026-06-29.md` | Helper for extracting deployment `--set` values from `junod -o json` store/instantiate tx responses. |
+| `24-tx-extractor-fixture-guard-2026-06-29.md` | CI fixture guard for the tx JSON extraction helper and launch-guard ordering. |
+| `25-deployment-command-bundle-2026-06-29.md` | Final deployment command bundler that combines tx-derived values with manual operator values and validates rendered config. |
+| `26-operator-tx-checklist-guard-2026-06-29.md` | Operator tx filename checklist plus CI guard for the uni-7 deployment handoff. |
+| `27-dry-run-tx-fixtures-2026-06-29.md` | Dry-run tx fixture generator and rehearsal guard for the uni-7 handoff. |
+| `28-dry-run-ci-wiring-2026-06-29.md` | CI wiring for the dry-run tx rehearsal guard. |
+| `29-deployment-gitignore-guard-2026-06-29.md` | Gitignore guard that keeps local tx JSON and rendered deployment configs out of commits. |
+| `30-frontend-config-guard-2026-06-29.md` | Frontend handoff guard that verifies rendered config address wiring and first XYK pair template without chain access. |
+| `31-dry-run-frontend-validation-2026-06-29.md` | Dry-run deployment rehearsal now validates the temp rendered config with both deployment and frontend guards. |
+| `32-frontend-types-handoff-2026-06-29.md` | Generated TypeScript frontend handoff type and CI guard tied to the deployment template. |
+| `33-frontend-example-guard-2026-06-29.md` | TypeScript frontend consumer example plus CI guard for the generated handoff type. |
+| `34-frontend-readme-consumption-2026-06-29.md` | Frontend README snippet showing how to import rendered JSON with the generated handoff type. |
+| `35-deployment-readme-guard-2026-06-29.md` | Deployment README guard that keeps operator/frontend handoff docs aligned with helper scripts. |
+| `36-frontend-handoff-sync-guard-2026-06-29.md` | Frontend address key sync guard across template, TypeScript, example, README, and CI. |
+| `37-frontend-release-checklist-guard-2026-06-29.md` | Frontend release checklist and guard for copying rendered deployment files into the UI repo. |
 
 Files marked "(P*)" are stubs until that phase begins.
 
