@@ -606,12 +606,7 @@ mod mock_cw20 {
         }
     }
 
-    fn transfer_inner(
-        state: &mut State,
-        from: &str,
-        to: &str,
-        amount: Uint128,
-    ) -> StdResult<()> {
+    fn transfer_inner(state: &mut State, from: &str, to: &str, amount: Uint128) -> StdResult<()> {
         // Subtract from sender.
         let from_balance = state
             .balances
@@ -653,5 +648,4 @@ mod mock_cw20 {
             .map_err(StdError::overflow)?;
         Ok(())
     }
-
 }

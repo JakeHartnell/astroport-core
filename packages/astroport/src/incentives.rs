@@ -1,8 +1,8 @@
 use std::hash::{Hash, Hasher};
 use std::ops::RangeInclusive;
 
-use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_schema::serde::{de::Error as _, Deserialize as _, Deserializer};
+use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Coin, Decimal256, Env, StdError, StdResult, Uint128};
 
 use crate::asset::{Asset, AssetInfo};
@@ -341,8 +341,8 @@ fn deserialize_generator_controller_update<'de, D>(
 where
     D: Deserializer<'de>,
 {
-    let opt = Option::<GeneratorControllerUpdate>::deserialize(deserializer)
-        .map_err(D::Error::custom)?;
+    let opt =
+        Option::<GeneratorControllerUpdate>::deserialize(deserializer).map_err(D::Error::custom)?;
     Ok(opt.unwrap_or_default())
 }
 

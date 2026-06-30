@@ -1,0 +1,130 @@
+{
+  "network": {
+    "chain_id": "uni-7",
+    "bech32_prefix": "juno",
+    "fee_denom": "ujunox",
+    "native_asset_denom": "ujunox"
+  },
+  "accounts": {
+    "owner": "juno1replaceowner000000000000000000000000000000000",
+    "guardian": "juno1replaceguardian000000000000000000000000000000",
+    "treasury": "juno1replacetreasury0000000000000000000000000000",
+    "tokenfactory_module": "juno1replacefactorymodule0000000000000000000000000"
+  },
+  "code_ids": {
+    "astroport-factory": 0,
+    "astroport-incentives": 0,
+    "astroport-native-coin-registry": 0,
+    "astroport-oracle": 0,
+    "astroport-pair": 0,
+    "astroport-router": 0,
+    "astroport-tokenfactory-tracker": 0,
+    "astroport-whitelist": 0,
+    "cw20-base": 0
+  },
+  "addresses": {
+    "astroport-factory": "juno1replacefactory000000000000000000000000000000",
+    "astroport-incentives": "juno1replaceincentives00000000000000000000000000",
+    "astroport-native-coin-registry": "juno1replacecoinregistry00000000000000000000000",
+    "astroport-oracle": "juno1replaceoracle0000000000000000000000000000000",
+    "astroport-router": "juno1replacerouter000000000000000000000000000000",
+    "astroport-tokenfactory-tracker": "juno1replacetracker0000000000000000000000000000",
+    "astroport-whitelist": "juno1replacewhitelist00000000000000000000000000"
+  },
+  "instantiate_msgs": {
+    "astroport-native-coin-registry": {
+      "owner": "juno1replaceowner000000000000000000000000000000000"
+    },
+    "astroport-whitelist": {
+      "admins": [
+        "juno1replaceowner000000000000000000000000000000000"
+      ],
+      "mutable": true
+    },
+    "astroport-tokenfactory-tracker": {
+      "tokenfactory_module_address": "juno1replacefactorymodule0000000000000000000000000",
+      "track_over_seconds": true,
+      "tracked_denom": "factory/juno1replacefactory000000000000000000000000000000/astroport/share"
+    },
+    "astroport-factory": {
+      "coin_registry_address": "juno1replacecoinregistry00000000000000000000000",
+      "fee_address": "juno1replacetreasury0000000000000000000000000000",
+      "generator_address": "juno1replaceincentives00000000000000000000000000",
+      "owner": "juno1replaceowner000000000000000000000000000000000",
+      "pair_configs": [
+        {
+          "code_id": 0,
+          "is_disabled": false,
+          "is_generator_disabled": false,
+          "maker_fee_bps": 0,
+          "pair_type": {
+            "xyk": {}
+          },
+          "permissioned": false,
+          "total_fee_bps": 30,
+          "whitelist": null
+        }
+      ],
+      "token_code_id": 0,
+      "tracker_config": {
+        "code_id": 0,
+        "token_factory_addr": "juno1replacefactorymodule0000000000000000000000000"
+      },
+      "whitelist_code_id": 0
+    },
+    "astroport-router": {
+      "astroport_factory": "juno1replacefactory000000000000000000000000000000"
+    },
+    "astroport-incentives": {
+      "reward_token": {
+        "native_token": {
+          "denom": "ujunox"
+        }
+      },
+      "factory": "juno1replacefactory000000000000000000000000000000",
+      "guardian": "juno1replaceguardian000000000000000000000000000000",
+      "incentivization_fee_info": null,
+      "owner": "juno1replaceowner000000000000000000000000000000000"
+    },
+    "astroport-oracle": {
+      "asset_infos": [
+        {
+          "native_token": {
+            "denom": "ujunox"
+          }
+        }
+      ],
+      "factory_contract": "juno1replacefactory000000000000000000000000000000"
+    }
+  },
+  "pair_create_msg_template": {
+    "pair_type": {
+      "xyk": {}
+    },
+    "asset_infos": [
+      {
+        "native_token": {
+          "denom": "ujunox"
+        }
+      },
+      {
+        "native_token": {
+          "denom": "ibc/REPLACE_COUNTERPARTY_DENOM_HASH"
+        }
+      }
+    ],
+    "init_params": null
+  },
+  "frontend": {
+    "required_addresses": [
+      "astroport-factory",
+      "astroport-router",
+      "astroport-native-coin-registry",
+      "astroport-incentives"
+    ],
+    "optional_addresses": [
+      "astroport-oracle"
+    ],
+    "pair_discovery": "query astroport-factory pairs/pair; do not hardcode pools before launch"
+  }
+}

@@ -36,8 +36,8 @@
 
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{
-    coin, to_json_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response,
-    StdError, StdResult, Timestamp, Uint128,
+    coin, to_json_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError,
+    StdResult, Timestamp, Uint128,
 };
 use cw_storage_plus::Item;
 
@@ -75,7 +75,13 @@ fn incentivize_rejects_fake_pair_impersonating_real_asset_infos() {
     // Stand up the real (UJUNO, MOCK_USDC) pair so the factory has an
     // entry for that asset_info pair — the attacker will try to
     // impersonate it.
-    let real_pair = create_pair(&mut app, &handles.factory, &handles.deployer, UJUNO, MOCK_USDC);
+    let real_pair = create_pair(
+        &mut app,
+        &handles.factory,
+        &handles.deployer,
+        UJUNO,
+        MOCK_USDC,
+    );
     let real_lp_denom = lp_denom_of(&app, &handles.factory, UJUNO, MOCK_USDC);
 
     // Deploy the fake-pair contract. Its sole purpose is to respond to
@@ -85,8 +91,12 @@ fn incentivize_rejects_fake_pair_impersonating_real_asset_infos() {
     let fake_pair = instantiate_fake_pair(
         &mut app,
         vec![
-            AssetInfo::NativeToken { denom: UJUNO.to_string() },
-            AssetInfo::NativeToken { denom: MOCK_USDC.to_string() },
+            AssetInfo::NativeToken {
+                denom: UJUNO.to_string(),
+            },
+            AssetInfo::NativeToken {
+                denom: MOCK_USDC.to_string(),
+            },
         ],
     );
     let fake_denom = format!("factory/{fake_pair}/astroport/share");
@@ -136,8 +146,14 @@ fn incentivize_rejects_fake_pair_impersonating_real_asset_infos() {
     );
     // Make sure the error message names both contenders so on-chain
     // attribution can attribute the spoof.
-    assert!(msg.contains(real_pair.as_str()), "error names the real pair address: {msg}");
-    assert!(msg.contains(fake_pair.as_str()), "error names the fake (claimed) pair address: {msg}");
+    assert!(
+        msg.contains(real_pair.as_str()),
+        "error names the real pair address: {msg}"
+    );
+    assert!(
+        msg.contains(fake_pair.as_str()),
+        "error names the fake (claimed) pair address: {msg}"
+    );
 
     // Belt-and-braces: the real pair's LP denom must still be acceptable
     // (proving the new gate doesn't false-positive on legitimate pairs).
@@ -174,7 +190,9 @@ fn incentivize_rejects_fake_pair_with_unregistered_asset_infos() {
     let fake_pair = instantiate_fake_pair(
         &mut app,
         vec![
-            AssetInfo::NativeToken { denom: UJUNO.to_string() },
+            AssetInfo::NativeToken {
+                denom: UJUNO.to_string(),
+            },
             AssetInfo::NativeToken {
                 denom: "ibc/no-such-pair-token".to_string(),
             },
@@ -210,7 +228,9 @@ fn incentivize_rejects_fake_pair_with_unregistered_asset_infos() {
             },
             &[coin(REWARD_AMOUNT, UJUNO)],
         )
-        .expect_err("Incentivize against a fake pair with unregistered asset_infos must be rejected by rc4");
+        .expect_err(
+            "Incentivize against a fake pair with unregistered asset_infos must be rejected by rc4",
+        );
 
     let msg = err.root_cause().to_string();
     assert!(
@@ -223,10 +243,20 @@ fn incentivize_rejects_fake_pair_with_unregistered_asset_infos() {
 // helpers
 // =====================================================================
 
-fn create_pair(app: &mut TestApp, factory: &Addr, deployer: &Addr, denom_a: &str, denom_b: &str) -> Addr {
+fn create_pair(
+    app: &mut TestApp,
+    factory: &Addr,
+    deployer: &Addr,
+    denom_a: &str,
+    denom_b: &str,
+) -> Addr {
     let asset_infos = vec![
-        AssetInfo::NativeToken { denom: denom_a.to_string() },
-        AssetInfo::NativeToken { denom: denom_b.to_string() },
+        AssetInfo::NativeToken {
+            denom: denom_a.to_string(),
+        },
+        AssetInfo::NativeToken {
+            denom: denom_b.to_string(),
+        },
     ];
     app.execute_contract(
         deployer.clone(),
@@ -253,8 +283,12 @@ fn lp_denom_of(app: &TestApp, factory: &Addr, denom_a: &str, denom_b: &str) -> S
             factory.clone(),
             &FactoryQueryMsg::Pair {
                 asset_infos: vec![
-                    AssetInfo::NativeToken { denom: denom_a.to_string() },
-                    AssetInfo::NativeToken { denom: denom_b.to_string() },
+                    AssetInfo::NativeToken {
+                        denom: denom_a.to_string(),
+                    },
+                    AssetInfo::NativeToken {
+                        denom: denom_b.to_string(),
+                    },
                 ],
             },
         )
