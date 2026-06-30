@@ -110,9 +110,9 @@ def assert_bundle_scope(entries: dict[str, bytes]) -> None:
         if name.endswith((".json", ".ts")):
             text = data.decode("utf-8", errors="ignore").lower()
             bad = [fragment for fragment in FORBIDDEN_CONTENT_SUBSTRINGS if fragment in text]
-            # The v1 config still carries schema-required maker_fee_bps and
-            # incentives vesting_contract fields, but should not mention any
-            # deferred pool/DEX-token surfaces in release bundle contents.
+            # The v1 config still carries schema-required maker_fee_bps, but
+            # should not mention any deferred pool/DEX-token surfaces in
+            # release bundle contents.
             if bad:
                 fail(f"forbidden deferred-scope text in {name}: {', '.join(sorted(set(bad)))}")
 

@@ -16,6 +16,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 TESTS = WORKFLOWS / "tests_and_checks.yml"
 ARTIFACTS = WORKFLOWS / "check_artifacts.yml"
+RELEASE_ARTIFACTS = WORKFLOWS / "release_artifacts.yml"
 
 
 class WorkflowText:
@@ -52,12 +53,14 @@ def assert_before(name: str, left_line: int, right_line: int) -> None:
 def main() -> None:
     tests = WorkflowText(TESTS)
     artifacts = WorkflowText(ARTIFACTS)
+    release_artifacts = WorkflowText(RELEASE_ARTIFACTS)
 
     scope_line = tests.first("scripts/check_juno_v1_scope.py")
     schema_lines = tests.all("scripts/check_juno_v1_schemas.py")
     template_line = tests.first("scripts/check_juno_v1_deployment_template.py")
     tx_extractor_line = tests.first("scripts/check_juno_v1_tx_extractor.py")
     deployment_command_line = tests.first("scripts/check_juno_v1_deployment_command.py")
+    secret_scan_line = tests.first("scripts/check_juno_v1_secret_scan.py")
     operator_checklist_line = tests.first("scripts/check_juno_v1_operator_checklist.py")
     dry_run_txs_line = tests.first("scripts/check_juno_v1_dry_run_txs.py")
     deployment_gitignore_line = tests.first("scripts/check_juno_v1_deployment_gitignore.py")
@@ -78,6 +81,7 @@ def main() -> None:
         ("deployment template guard", template_line),
         ("tx extractor fixture guard", tx_extractor_line),
         ("deployment command guard", deployment_command_line),
+        ("secret scan guard", secret_scan_line),
         ("operator checklist guard", operator_checklist_line),
         ("dry-run tx rehearsal guard", dry_run_txs_line),
         ("deployment gitignore guard", deployment_gitignore_line),
@@ -97,6 +101,7 @@ def main() -> None:
         < template_line
         < tx_extractor_line
         < deployment_command_line
+        < secret_scan_line
         < operator_checklist_line
         < dry_run_txs_line
         < deployment_gitignore_line
@@ -108,7 +113,7 @@ def main() -> None:
         < frontend_release_checklist_line
         < ci_wiring_line
     ):
-        fail("tests workflow must run launch guards in scope/schema/template/tx-extractor/deployment-command/operator-checklist/dry-run-txs/deployment-gitignore/deployment-readme/frontend-config/frontend-types/frontend-example/frontend-handoff-sync/frontend-release-checklist/ci-wiring order")
+        fail("tests workflow must run launch guards in scope/schema/template/tx-extractor/deployment-command/secret-scan/operator-checklist/dry-run-txs/deployment-gitignore/deployment-readme/frontend-config/frontend-types/frontend-example/frontend-handoff-sync/frontend-release-checklist/ci-wiring order")
 
     if len(schema_lines) < 2:
         fail("tests workflow must run schema guard both before Rust work and after schema generation")
@@ -120,15 +125,27 @@ def main() -> None:
     build_artifacts_line = artifacts.first("name: Build Artifacts")
     size_line = artifacts.first("scripts/check_artifacts_size.sh")
     artifact_guard_line = artifacts.first("scripts/check_juno_v1_artifacts.py")
-    cosmwasm_check_line = artifacts.first("Cosmwasm check")
+    upload_line = artifacts.first("actions/upload-artifact")
+    download_line = artifacts.first("actions/download-artifact")
+    cosmwasm_check_line = artifacts.all("cosmwasm-check $GITHUB_WORKSPACE/artifacts/*.wasm")[-1]
 
-    if not (build_artifacts_line < size_line < artifact_guard_line < cosmwasm_check_line):
-        fail("artifact workflow must build, size-check, v1 artifact-check, then cosmwasm-check")
+    if not (build_artifacts_line < size_line < artifact_guard_line < upload_line < download_line < cosmwasm_check_line):
+        fail("artifact workflow must build, size-check, v1 artifact-check, upload per-run artifacts, download them, then cosmwasm-check")
+    for idx, line in enumerate(artifacts.lines, start=1):
+        if "path: artifacts" in line:
+            before = "\n".join(artifacts.lines[max(0, idx - 5) : idx])
+            if "actions/upload-artifact" not in before and "actions/download-artifact" not in before:
+                fail("artifact workflow must only pass artifacts via upload/download-artifact")
+    for idx, line in enumerate(release_artifacts.lines, start=1):
+        if "path: artifacts" in line:
+            before = "\n".join(release_artifacts.lines[max(0, idx - 5) : idx])
+            if "actions/cache" in before:
+                fail("release_artifacts.yml must not restore cached artifacts before packaging a release")
 
     print("OK: GitHub Actions wiring enforces Astroport-Juno v1 guards")
     print(
-        "tests_guards=scope/schema/template/tx-extractor/deployment-command/operator-checklist pre_rust=true "
-        "dry_run_txs=true deployment_gitignore=true deployment_readme=true frontend_config=true frontend_types=true frontend_example=true frontend_handoff_sync=true frontend_release_checklist=true schema_post_generation=true artifact_guard_after_size=true"
+        "tests_guards=scope/schema/template/tx-extractor/deployment-command/secret-scan/operator-checklist pre_rust=true "
+        "dry_run_txs=true deployment_gitignore=true deployment_readme=true frontend_config=true frontend_types=true frontend_example=true frontend_handoff_sync=true frontend_release_checklist=true schema_post_generation=true artifact_guard_after_size=true artifact_handoff=upload-download release_artifacts_no_cache=true"
     )
 
 

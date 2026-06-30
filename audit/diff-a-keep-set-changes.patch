@@ -3212,7 +3212,7 @@ index 1d8a1e9f..00000000
 +++ /dev/null
 @@ -1,28 +0,0 @@
 -{
--  "private_key": "8482bce4e5f250bb775f788ce89abc4717980e97c618a1f26278b195b3b6b05f",
+-  "private_key": "<REDACTED>",
 -  "public_key": "0229fc5e5a420a15020e62cde603b5285f4908918f27632daf85435f3ab9d293d5",
 -  "address": [
 -    14,
@@ -3247,7 +3247,7 @@ index e43dfc9e..00000000
 +++ /dev/null
 @@ -1,28 +0,0 @@
 -{
--  "private_key": "f5cbe80991c82afe42d51e2dc9946332c4322aff69cbc23fc25a4f05a73eb419",
+-  "private_key": "<REDACTED>",
 -  "public_key": "0316b8bfc0d651848fdab2dd4befdd86bbf89bf37251ee2f68789586284e53c993",
 -  "address": [
 -    176,
@@ -10366,15 +10366,15 @@ index 7c6aa0f5..00000000
 -
 -export const LCD = extendLCD(new LCDClient(CHAINS))
 -
--export const USER_MNEMONIC = "journey proud segment gorilla pencil common phone cloth undo walk civil add gate six measure often addict turn because wet bachelor mechanic ozone early"
+REDACTED_WALLET_SECRET_PLACEHOLDER=<removed>
 -
 -export type Signer = { signer: Wallet, address: string, chain_id: string }
 -
 -export const get_signers = (): Record<string, Signer> => {
--    const terra_signer = LCD.wallet(new MnemonicKey({mnemonic: USER_MNEMONIC, coinType: 330}));
+REDACTED_WALLET_SECRET_PLACEHOLDER=<removed>
 -    const terra_signer_addr = terra_signer.key.accAddress("terra")
 -
--    const neutron_signer = LCD.wallet(new MnemonicKey({mnemonic: USER_MNEMONIC, coinType: 118}));
+REDACTED_WALLET_SECRET_PLACEHOLDER=<removed>
 -    const neutron_signer_addr = neutron_signer.key.accAddress("neutron")
 -
 -    return {

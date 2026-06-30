@@ -89,6 +89,11 @@ pub struct PoolInfo {
     /// NOTE: this is not part of serialized structure in state!
     #[serde(skip)]
     pub rewards_to_remove: HashMap<RewardType, (Decimal256, Decimal256)>,
+    /// Active rewards accrued while no LP tokens were staked and later made
+    /// recoverable through [`ORPHANED_REWARDS`]. This is in-memory only and is
+    /// flushed by [`PoolInfo::save`].
+    #[serde(skip)]
+    pub orphaned_rewards_to_claim: HashMap<AssetInfo, Decimal256>,
 }
 
 impl PoolInfo {
@@ -169,10 +174,15 @@ impl PoolInfo {
             if self.total_lp.is_zero() {
                 reward_info.orphaned += collected_rewards;
             } else {
-                // Allowing the first depositor to claim orphaned rewards
-                reward_info.index += (reward_info.orphaned + collected_rewards)
-                    / Decimal256::from_ratio(self.total_lp, 1u8);
-                reward_info.orphaned = Decimal256::zero();
+                if !reward_info.orphaned.is_zero() {
+                    self.orphaned_rewards_to_claim
+                        .entry(reward_info.reward.asset_info().clone())
+                        .and_modify(|amount| *amount += reward_info.orphaned)
+                        .or_insert(reward_info.orphaned);
+                    reward_info.orphaned = Decimal256::zero();
+                }
+
+                reward_info.index += collected_rewards / Decimal256::from_ratio(self.total_lp, 1u8);
             }
 
             if need_remove {
@@ -445,6 +455,19 @@ impl PoolInfo {
     /// If reward schedule has orphaned rewards accumulate them in ORPHANED_REWARDS.
     /// This function consumes self just to make sure it becomes unusable after calling save().
     pub fn save(self, storage: &mut dyn Storage, lp_token: &AssetInfo) -> StdResult<()> {
+        for (reward, orphaned_amount) in &self.orphaned_rewards_to_claim {
+            if !orphaned_amount.is_zero() {
+                ORPHANED_REWARDS.update::<_, StdError>(
+                    storage,
+                    &asset_info_key(reward),
+                    |amount| {
+                        Ok(amount.unwrap_or_default()
+                            + Uint128::try_from(orphaned_amount.to_uint_floor())?)
+                    },
+                )?;
+            }
+        }
+
         if !self.rewards_to_remove.is_empty() {
             self.rewards_to_remove
                 .iter()
@@ -499,7 +522,10 @@ pub fn list_pool_stakers(
     limit: Option<u8>,
 ) -> StdResult<Vec<(Addr, Uint128)>> {
     let start = start_after.as_ref().map(Bound::exclusive);
-    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).max(MAX_PAGE_LIMIT);
+    let limit = limit.unwrap_or(MAX_PAGE_LIMIT).min(MAX_PAGE_LIMIT);
+    if limit == 0 {
+        return Err(StdError::generic_err("limit must be > 0"));
+    }
     USER_INFO
         .prefix(lp_token)
         .range(storage, start, None, Order::Ascending)
@@ -712,5 +738,56 @@ impl UserInfo {
     /// Remove user position from state.
     pub fn remove(self, storage: &mut dyn Storage, user: &Addr, lp_token: &AssetInfo) {
         USER_INFO.remove(storage, (lp_token, user))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use astroport::asset::AssetInfo;
+    use astroport::incentives::MAX_PAGE_LIMIT;
+    use cosmwasm_std::testing::mock_dependencies;
+    use cosmwasm_std::Uint128;
+
+    use super::{list_pool_stakers, UserInfo, USER_INFO};
+
+    #[test]
+    fn list_pool_stakers_caps_requested_limit_to_max_page_limit() {
+        let mut deps = mock_dependencies();
+        let lp_token = AssetInfo::native("factory/juno1pool/ulp");
+
+        for index in 0..(MAX_PAGE_LIMIT + 5) {
+            let user = deps.api.addr_make(&format!("staker{index:02}"));
+            USER_INFO
+                .save(
+                    deps.as_mut().storage,
+                    (&lp_token, &user),
+                    &UserInfo {
+                        amount: Uint128::new(index as u128 + 1),
+                        last_rewards_index: vec![],
+                        last_claim_time: 0,
+                    },
+                )
+                .unwrap();
+        }
+
+        let stakers = list_pool_stakers(
+            deps.as_ref().storage,
+            &lp_token,
+            None,
+            Some(MAX_PAGE_LIMIT + 5),
+        )
+        .unwrap();
+
+        assert_eq!(stakers.len(), MAX_PAGE_LIMIT as usize);
+    }
+
+    #[test]
+    fn list_pool_stakers_rejects_zero_limit() {
+        let deps = mock_dependencies();
+        let lp_token = AssetInfo::native("factory/juno1pool/ulp");
+
+        let err = list_pool_stakers(deps.as_ref().storage, &lp_token, None, Some(0)).unwrap_err();
+
+        assert_eq!(err.to_string(), "Generic error: limit must be > 0");
     }
 }

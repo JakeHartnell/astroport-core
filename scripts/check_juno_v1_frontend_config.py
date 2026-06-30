@@ -125,9 +125,17 @@ def main() -> None:
     oracle_msg = require_dict(msgs, "astroport-oracle")
 
     assert_eq("instantiate_msgs.astroport-factory.coin_registry_address", factory_msg.get("coin_registry_address"), coin_registry_addr)
-    assert_eq("instantiate_msgs.astroport-factory.generator_address", factory_msg.get("generator_address"), incentives_addr)
+    assert_eq("instantiate_msgs.astroport-factory.generator_address", factory_msg.get("generator_address"), None)
     assert_eq("instantiate_msgs.astroport-router.astroport_factory", router_msg.get("astroport_factory"), factory_addr)
     assert_eq("instantiate_msgs.astroport-incentives.factory", incentives_msg.get("factory"), factory_addr)
+    if "reward_token" not in incentives_msg:
+        fail("instantiate_msgs.astroport-incentives missing reward_token")
+    legacy_incentives = sorted({"astro_token", "vesting_contract"} & set(incentives_msg))
+    if legacy_incentives:
+        fail("instantiate_msgs.astroport-incentives uses legacy key(s): " + ", ".join(legacy_incentives))
+    post_update_state = require_dict(cfg, "post_update_state")
+    factory_final = require_dict(post_update_state, "astroport-factory")
+    assert_eq("post_update_state.astroport-factory.generator_address", factory_final.get("generator_address"), incentives_addr)
     assert_eq("instantiate_msgs.astroport-oracle.factory_contract", oracle_msg.get("factory_contract"), factory_addr)
 
     if router_addr == factory_addr:

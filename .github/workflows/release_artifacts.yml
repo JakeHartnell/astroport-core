@@ -26,12 +26,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Restore cached artifacts
-        uses: actions/cache@v4
-        with:
-          path: artifacts
-          key: ${{ runner.os }}-artifacts-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Build Artifacts
         run: |
           $GITHUB_WORKSPACE/scripts/build_release.sh
