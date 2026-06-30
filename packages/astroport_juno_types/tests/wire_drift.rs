@@ -508,8 +508,8 @@ fn pair_xyk_pool_params_unpause_omitted_default() {
     assert_eq!(shim.track_asset_balances, Some(true));
     assert_eq!(shim.pool_unpause_at, None);
 
-    let upstream: astroport::pair::XYKPoolParams = serde_json::from_str(legacy_json)
-        .expect("upstream accepts legacy XYKPoolParams JSON");
+    let upstream: astroport::pair::XYKPoolParams =
+        serde_json::from_str(legacy_json).expect("upstream accepts legacy XYKPoolParams JSON");
     assert_eq!(upstream.track_asset_balances, Some(true));
     assert_eq!(upstream.pool_unpause_at, None);
 }
@@ -646,8 +646,8 @@ fn pair_execute_withdraw_liquidity_assets_omitted_default() {
         other => panic!("expected WithdrawLiquidity, got {other:?}"),
     }
 
-    let upstream: astroport::pair::ExecuteMsg = serde_json::from_str(legacy_json)
-        .expect("upstream accepts legacy WithdrawLiquidity JSON");
+    let upstream: astroport::pair::ExecuteMsg =
+        serde_json::from_str(legacy_json).expect("upstream accepts legacy WithdrawLiquidity JSON");
     match upstream {
         astroport::pair::ExecuteMsg::WithdrawLiquidity {
             assets,
@@ -969,32 +969,48 @@ fn pair_config_response_bidir() {
 fn pair_cumulative_prices_response_bidir() {
     let assets_juno = vec![
         juno::asset::Asset {
-            info: juno::asset::AssetInfo::NativeToken { denom: "ujuno".to_string() },
+            info: juno::asset::AssetInfo::NativeToken {
+                denom: "ujuno".to_string(),
+            },
             amount: Uint128::new(1_000_000),
         },
         juno::asset::Asset {
-            info: juno::asset::AssetInfo::NativeToken { denom: "ibc/USDC".to_string() },
+            info: juno::asset::AssetInfo::NativeToken {
+                denom: "ibc/USDC".to_string(),
+            },
             amount: Uint128::new(500_000),
         },
     ];
     let assets_up = vec![
         astroport::asset::Asset {
-            info: astroport::asset::AssetInfo::NativeToken { denom: "ujuno".to_string() },
+            info: astroport::asset::AssetInfo::NativeToken {
+                denom: "ujuno".to_string(),
+            },
             amount: Uint128::new(1_000_000),
         },
         astroport::asset::Asset {
-            info: astroport::asset::AssetInfo::NativeToken { denom: "ibc/USDC".to_string() },
+            info: astroport::asset::AssetInfo::NativeToken {
+                denom: "ibc/USDC".to_string(),
+            },
             amount: Uint128::new(500_000),
         },
     ];
     let prices_juno = vec![(
-        juno::asset::AssetInfo::NativeToken { denom: "ujuno".to_string() },
-        juno::asset::AssetInfo::NativeToken { denom: "ibc/USDC".to_string() },
+        juno::asset::AssetInfo::NativeToken {
+            denom: "ujuno".to_string(),
+        },
+        juno::asset::AssetInfo::NativeToken {
+            denom: "ibc/USDC".to_string(),
+        },
         Uint128::new(987_654_321),
     )];
     let prices_up = vec![(
-        astroport::asset::AssetInfo::NativeToken { denom: "ujuno".to_string() },
-        astroport::asset::AssetInfo::NativeToken { denom: "ibc/USDC".to_string() },
+        astroport::asset::AssetInfo::NativeToken {
+            denom: "ujuno".to_string(),
+        },
+        astroport::asset::AssetInfo::NativeToken {
+            denom: "ibc/USDC".to_string(),
+        },
         Uint128::new(987_654_321),
     )];
     bidir_roundtrip(

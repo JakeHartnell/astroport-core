@@ -72,8 +72,7 @@ pub fn reply(deps: DepsMut, _env: Env, msg: Reply) -> Result<Response, ContractE
         // recover the funds via `ClaimOrphanedRewards`, and we emit a
         // structured `transfer_error` attribute so off-chain monitors can alert.
         Reply { id, result } if id >= FIRST_DYNAMIC_REPLY_ID => {
-            let Some((reward_key, amount)) =
-                PENDING_REWARD_TRANSFERS.may_load(deps.storage, id)?
+            let Some((reward_key, amount)) = PENDING_REWARD_TRANSFERS.may_load(deps.storage, id)?
             else {
                 // Defensive: a payload we did not register. Best-effort log and
                 // continue rather than aborting the whole transaction.

@@ -181,18 +181,25 @@ fn migrate_from_upstream_unsupported_version_rejected() {
     // Seed legacy state: cw2 says "astroport-incentives 1.3.0" (note: the
     // fork's CARGO_PKG_NAME match is just "astroport-incentives" — the
     // crates.io-published `crates.io:` prefix is exercised in test 2).
-    write_legacy_cw2(&mut app, &incentives, FORK_CONTRACT_NAME, UPSTREAM_VERSION_1_3_0);
+    write_legacy_cw2(
+        &mut app,
+        &incentives,
+        FORK_CONTRACT_NAME,
+        UPSTREAM_VERSION_1_3_0,
+    );
     write_legacy_config_json(&mut app, &incentives);
 
     // Snapshot the legacy bytes so we can prove no partial write.
-    let cw2_before = read_raw(&app, &incentives, CW2_CONTRACT_INFO_KEY)
-        .expect("cw2 contract_info seeded");
+    let cw2_before =
+        read_raw(&app, &incentives, CW2_CONTRACT_INFO_KEY).expect("cw2 contract_info seeded");
     let config_before = read_raw(&app, &incentives, CONFIG_KEY).expect("legacy config seeded");
 
     // Migrate to the same code_id (real-world this would be a new wasm
     // upload, but for the rejection path the code identity doesn't
     // matter — the guard fires before any contract logic runs).
-    let deployer = app.api().addr_make(astroport_juno_integration_tests::DEPLOYER);
+    let deployer = app
+        .api()
+        .addr_make(astroport_juno_integration_tests::DEPLOYER);
     let err = app
         .migrate_contract(deployer, incentives.clone(), &Empty {}, code_id)
         .expect_err(
@@ -260,7 +267,9 @@ fn migrate_from_upstream_contract_name_rejected() {
     );
     write_legacy_config_json(&mut app, &incentives);
 
-    let deployer = app.api().addr_make(astroport_juno_integration_tests::DEPLOYER);
+    let deployer = app
+        .api()
+        .addr_make(astroport_juno_integration_tests::DEPLOYER);
     let err = app
         .migrate_contract(deployer, incentives.clone(), &Empty {}, code_id)
         .expect_err(
@@ -308,7 +317,9 @@ fn migrate_from_current_fork_version_rejected() {
     assert_eq!(cw2.contract, FORK_CONTRACT_NAME);
     assert_eq!(cw2.version, FORK_CONTRACT_VERSION);
 
-    let deployer = app.api().addr_make(astroport_juno_integration_tests::DEPLOYER);
+    let deployer = app
+        .api()
+        .addr_make(astroport_juno_integration_tests::DEPLOYER);
     let err = app
         .migrate_contract(deployer, incentives.clone(), &Empty {}, code_id)
         .expect_err(

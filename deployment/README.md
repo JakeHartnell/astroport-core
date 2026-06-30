@@ -6,6 +6,9 @@ This folder is the narrow handoff between contract upload/instantiate output and
 
 - `juno-v1-testnet.template.json` — canonical placeholder template for the v1 surface.
 - `juno-v1-testnet.json` — suggested rendered output path; do not commit real values until the DAO/stewards choose to publish them.
+- `juno-v1-mainnet.json` — rendered mainnet output path; do not commit real values until the DAO/stewards choose to publish them.
+- `juno-v1-readiness-plan.md` — operator deployment/readiness plan with instantiate order, no-broadcast dry-run commands, safety checks, rollback/freeze risks, and exact blockers.
+- `MAINNET_DEPLOYMENT.md` — mainnet `juno-1` operator runbook for approvals, artifact checks, tx capture, config rendering, frontend handoff, smoke tests, and rollback/freeze actions.
 - `frontend-release-checklist.md` — final copy/verification checklist for moving the rendered handoff into the UI repo.
 
 ## Required values after upload / instantiate
