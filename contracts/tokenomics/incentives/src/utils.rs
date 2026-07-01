@@ -903,7 +903,7 @@ mod unit_tests {
         // Seed an "active" PoolInfo — non-zero internal rps so
         // `is_active_pool()` returns true and the deactivate_pool match
         // arm enters the `Some(_) if pool_info.is_active_pool()` branch.
-        let mut pool_info = PoolInfo {
+        let pool_info = PoolInfo {
             total_lp: Uint128::zero(),
             rewards: vec![RewardInfo {
                 reward: RewardType::Int(reward_token.clone()),
@@ -913,6 +913,7 @@ mod unit_tests {
             }],
             last_update_ts: env.block.time.seconds(),
             rewards_to_remove: Default::default(),
+            orphaned_rewards_to_claim: Default::default(),
         };
         pool_info.save(deps.as_mut().storage, &lp_asset).unwrap();
 

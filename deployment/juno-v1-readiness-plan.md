@@ -92,7 +92,7 @@ Use this order to avoid circular dependencies. The rendered config represents th
    - `owner` = DAO/steward owner,
    - `fee_address` = treasury,
    - `generator_address` = `null` for the initial instantiate unless the incentives address is safely precomputed,
-   - one XYK pair config only: pair code ID, `total_fee_bps=30`, `maker_fee_bps=0`, `permissioned=false`, not disabled,
+   - one XYK pair config only: pair code ID, `total_fee_bps=30`, `maker_fee_bps=0`, `permissioned=true`, not disabled. Keep it permissioned until the official first pair is created and seeded.
    - `token_code_id` = cw20-base code ID,
    - `whitelist_code_id` = whitelist code ID,
    - `tracker_config.code_id` = tokenfactory tracker code ID,
@@ -102,9 +102,12 @@ Use this order to avoid circular dependencies. The rendered config represents th
 9. Instantiate `astroport-router` with factory address.
 10. Instantiate `astroport-oracle` only for a real pair asset vector when a pool exists; otherwise leave it out of launch-critical UI and do not pretend it proves readiness.
 11. Instantiate standalone `astroport-tokenfactory-tracker` only if an operator-facing tracker address is still desired; factory-created pair trackers are the launch-critical path.
-12. Create first XYK pool through factory `create_pair`; wait for pair address and LP denom.
-13. Provide seed liquidity.
-14. Query factory/pair/router/config state and produce `deployment/juno-v1-testnet.json` or mainnet equivalent from tx output.
+12. Verify the official first pair does not already exist by querying factory `pair`/`pairs` for the launch asset infos; stop if any unexpected pair exists.
+13. Create the official first XYK pool through factory `create_pair`; wait for pair address and LP denom.
+14. Immediately provide official seed liquidity.
+15. Query factory pair registry and pool balances; require the official pair address and non-zero liquidity.
+16. After smoke checks pass, execute factory `update_pair_config` for XYK with the same fees/code ID and `permissioned=false` to open public pair creation.
+17. Query factory/pair/router/config state and produce `deployment/juno-v1-testnet.json` or mainnet equivalent from tx output.
 
 If the team chooses Instantiate2/address precomputation, document the salt, code checksum, creator, predicted addresses, and verification query before deviating from the update-after-incentives path.
 
@@ -117,7 +120,7 @@ Factory `Config {}` must show:
 - pair type = `{ "xyk": {} }`.
 - pair code ID = uploaded `astroport_pair.wasm` code ID.
 - `is_disabled=false` and `is_generator_disabled=false` unless intentionally freezing launch.
-- `permissioned=false` for v1 public pool creation, unless governance explicitly chooses a permissioned launch.
+- `permissioned=true` during the first-pool gate. It may become `permissioned=false` for public pool creation only after the official first pair is registered, seeded, and smoke-checked.
 - `total_fee_bps=30`, `maker_fee_bps=0` unless governance explicitly changes fees.
 - `coin_registry_address` = deployed native coin registry.
 - `whitelist_code_id` = deployed whitelist code ID.
@@ -209,6 +212,17 @@ jq '.pair_create_msg_template | {create_pair: .}' deployment/juno-v1-testnet.jso
   --gas auto --gas-adjustment 1.4 --gas-prices "$GAS_PRICES" \
   --keyring-backend "$KEYRING_BACKEND" --keyring-dir "$KEYRING_DIR" \
   --generate-only > /tmp/create-pair.unsigned.json
+```
+
+Open public pair creation only after the first-pool gate passes:
+
+```sh
+jq '.post_update_state["astroport-factory"].pair_configs[0] | {update_pair_config:{config:.}}' deployment/juno-v1-testnet.json > /tmp/open-public-pair-creation-msg.json
+/opt/data/bin/junod tx wasm execute "$ADDR_FACTORY" "$(cat /tmp/open-public-pair-creation-msg.json)" \
+  --from "$KEY_NAME" --chain-id "$CHAIN_ID" --node "$RPC" \
+  --gas auto --gas-adjustment 1.4 --gas-prices "$GAS_PRICES" \
+  --keyring-backend "$KEYRING_BACKEND" --keyring-dir "$KEYRING_DIR" \
+  --generate-only > /tmp/open-public-pair-creation.unsigned.json
 ```
 
 Do not add `--yes`; do not broadcast from this plan.

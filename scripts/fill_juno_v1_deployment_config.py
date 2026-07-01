@@ -4,7 +4,9 @@
 The template intentionally carries placeholders and zero code IDs. This script is
 for the handoff point after uni-7 uploads/instantiates: provide the real values
 with repeated --set dotted.path=value flags, and it rewires dependent instantiate
-fields so the frontend/deployment config stays internally consistent.
+fields so the frontend/deployment config stays internally consistent. Factory
+instantiate messages intentionally keep generator_address=null; post_update_state
+records the expected factory config after update_config points at incentives.
 """
 from __future__ import annotations
 
@@ -42,6 +44,7 @@ ADDRESS_KEYS = (
 )
 
 PLACEHOLDER_RE = re.compile(r"replace|REPLACE", re.IGNORECASE)
+LEGACY_INCENTIVES_KEYS = {"astro_token", "vesting_contract"}
 
 
 def fail(msg: str) -> NoReturn:
@@ -117,6 +120,7 @@ def rewire(cfg: dict[str, Any]) -> None:
     addresses = require(cfg, "addresses")
     network = require(cfg, "network")
     msgs = require(cfg, "instantiate_msgs")
+    post_update_state = require(cfg, "post_update_state")
 
     owner = accounts["owner"]
     guardian = accounts["guardian"]
@@ -134,7 +138,7 @@ def rewire(cfg: dict[str, Any]) -> None:
     factory = msgs["astroport-factory"]
     factory["coin_registry_address"] = addresses["astroport-native-coin-registry"]
     factory["fee_address"] = treasury
-    factory["generator_address"] = addresses["astroport-incentives"]
+    factory["generator_address"] = None
     factory["owner"] = owner
     factory["token_code_id"] = code_ids["cw20-base"]
     factory["tracker_config"]["code_id"] = code_ids["astroport-tokenfactory-tracker"]
@@ -147,10 +151,18 @@ def rewire(cfg: dict[str, Any]) -> None:
     msgs["astroport-router"]["astroport_factory"] = addresses["astroport-factory"]
 
     incentives = msgs["astroport-incentives"]
+    legacy = sorted(LEGACY_INCENTIVES_KEYS & incentives.keys())
+    if legacy:
+        fail("instantiate_msgs.astroport-incentives uses legacy key(s): " + ", ".join(legacy))
     incentives["reward_token"] = {"native_token": {"denom": native_denom}}
     incentives["factory"] = addresses["astroport-factory"]
     incentives["guardian"] = guardian
     incentives["owner"] = owner
+
+    factory_final = post_update_state["astroport-factory"]
+    factory_final["generator_address"] = addresses["astroport-incentives"]
+    factory_final["pair_configs"] = copy.deepcopy(factory["pair_configs"])
+    factory_final["pair_configs"][0]["permissioned"] = False
 
     oracle = msgs["astroport-oracle"]
     oracle["asset_infos"] = [{"native_token": {"denom": native_denom}}]

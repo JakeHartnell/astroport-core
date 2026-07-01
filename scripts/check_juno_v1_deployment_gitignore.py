@@ -20,6 +20,7 @@ README = ROOT / "deployment" / "README.md"
 REQUIRED_GITIGNORE_LINES = (
     "/deployment/tx/",
     "/deployment/juno-v1-testnet.json",
+    "/deployment/juno-v1-mainnet.json",
 )
 
 SHOULD_BE_IGNORED = (
@@ -28,6 +29,7 @@ SHOULD_BE_IGNORED = (
     "deployment/tx/uni-7/tx-sets.txt",
     "deployment/tx/uni-7-dry-run/store-astroport-factory.json",
     "deployment/juno-v1-testnet.json",
+    "deployment/juno-v1-mainnet.json",
 )
 
 FORBIDDEN_TRACKED_PREFIXES = (
@@ -36,6 +38,7 @@ FORBIDDEN_TRACKED_PREFIXES = (
 
 FORBIDDEN_TRACKED_FILES = (
     "deployment/juno-v1-testnet.json",
+    "deployment/juno-v1-mainnet.json",
 )
 
 
@@ -70,7 +73,7 @@ def main() -> None:
     for path in SHOULD_BE_IGNORED:
         require_ignored(path)
 
-    tracked = run_git(["ls-files", "--", "deployment/tx", "deployment/juno-v1-testnet.json"])
+    tracked = run_git(["ls-files", "--", "deployment/tx", "deployment/juno-v1-testnet.json", "deployment/juno-v1-mainnet.json"])
     if tracked.returncode != 0:
         fail(f"git ls-files failed: {tracked.stderr.strip()}")
     tracked_paths = [line.strip() for line in tracked.stdout.splitlines() if line.strip()]
@@ -91,6 +94,7 @@ def main() -> None:
         "ignored directory",
         "deployment/tx/uni-7-dry-run",
         "juno-v1-testnet.json` — suggested rendered output path; do not commit real values",
+        "juno-v1-mainnet.json` — rendered mainnet output path; do not commit real values",
     ):
         if needle not in readme:
             fail(f"deployment README missing gitignore safety text: {needle}")

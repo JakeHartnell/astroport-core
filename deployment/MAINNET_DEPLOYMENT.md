@@ -158,14 +158,17 @@ Use the update-after-incentives path unless the team explicitly chooses Instanti
 1. Instantiate native coin registry.
 2. Register `ujuno` and the verified first counterparty denom + decimals.
 3. Instantiate whitelist.
-4. Instantiate factory with one permissionless XYK pair config and `generator_address=null`.
+4. Instantiate factory with one XYK pair config, `permissioned=true`, and `generator_address=null`. Keep XYK pair creation permissioned until the official first pair exists and seed liquidity is confirmed.
 5. Instantiate incentives with factory address, owner, guardian, and `reward_token={"native_token":{"denom":"ujuno"}}`.
 6. Execute factory `update_config` to set `generator_address` to incentives.
 7. Instantiate router with factory address.
 8. Instantiate oracle only after a real pair asset vector exists, or keep oracle dormant/out of the frontend launch-critical path.
 9. Instantiate standalone tokenfactory tracker only if the operator still needs it; factory-created pair trackers are the critical path.
-10. Create first XYK pair through factory.
-11. Seed liquidity.
+10. Verify the official first pair does not already exist by querying factory `pair`/`pairs` for the launch asset infos. If it exists unexpectedly, stop and reconcile before continuing.
+11. Create the official first XYK pair through factory from the approved owner/operator wallet.
+12. Immediately seed official liquidity from the approved seed wallet.
+13. Query factory pair registry and pool balances; require the official pair address to be registered and pool liquidity to be non-zero.
+14. Run the smoke checks in section 8, then execute factory `update_pair_config` for XYK with the same fees/code ID and `permissioned=false` to open public pair creation.
 
 Save every tx response under `deployment/tx/juno-1/` with explicit names, for example:
 
@@ -182,6 +185,7 @@ instantiate-astroport-oracle.json
 instantiate-astroport-tokenfactory-tracker.json
 execute-factory-create-pair.json
 execute-pair-provide-liquidity.json
+execute-factory-open-public-pair-creation.json
 ```
 
 ## 7. Render deployment config from tx output
@@ -228,21 +232,34 @@ python3 scripts/check_juno_v1_frontend_config.py deployment/juno-v1-mainnet.json
 python3 -m json.tool deployment/juno-v1-mainnet.json >/tmp/juno-v1-mainnet.pretty.json
 ```
 
-## 8. Post-deploy verification queries
+## 8. First-pool gate and post-deploy verification queries
+
+Keep XYK pair creation permissioned until all first-pool gate evidence below is captured. Do not open `permissioned=false` while the factory has no official seeded pair.
 
 ```sh
 $JUNOD query wasm contract-state smart "$ADDR_FACTORY" '{"config":{}}' --node "$RPC" -o json | jq
 $JUNOD query wasm contract-state smart "$ADDR_NATIVE_COIN_REGISTRY" '{"native_tokens":{"limit":30}}' --node "$RPC" -o json | jq
+$JUNOD query wasm contract-state smart "$ADDR_FACTORY" '{"pair":{"asset_infos":[{"native_token":{"denom":"ujuno"}},{"native_token":{"denom":"'$FIRST_COUNTERPARTY_DENOM'"}}]}}' --node "$RPC" -o json | jq
 $JUNOD query wasm contract-state smart "$ADDR_FACTORY" '{"pairs":{"limit":30}}' --node "$RPC" -o json | jq
 $JUNOD query wasm contract-state smart "$PAIR_ADDR" '{"pool":{}}' --node "$RPC" -o json | jq
 $JUNOD query wasm contract-state smart "$PAIR_ADDR" '{"simulation":{"offer_asset":{"info":{"native_token":{"denom":"ujuno"}},"amount":"1000000"}}}' --node "$RPC" -o json | jq
 $JUNOD query wasm contract-state smart "$ADDR_ROUTER" '{"config":{}}' --node "$RPC" -o json | jq
 ```
 
+Only after the official pair query resolves to the expected `$PAIR_ADDR`, pool balances are non-zero, and smoke checks pass, open public creation:
+
+```sh
+jq '.post_update_state["astroport-factory"].pair_configs[0] | {update_pair_config:{config:.}}' deployment/juno-v1-mainnet.json > /tmp/open-public-pair-creation-msg.json
+$JUNOD tx wasm execute "$ADDR_FACTORY" "$(cat /tmp/open-public-pair-creation-msg.json)" \
+  --from "$KEY_NAME" --chain-id "$CHAIN_ID" --node "$RPC" \
+  --gas auto --gas-adjustment 1.4 --gas-prices "$GAS_PRICES" \
+  --keyring-backend "$KEYRING_BACKEND" --keyring-dir "$KEYRING_DIR"
+```
+
 Expected launch state:
 
 - Factory owner is the approved DAO/steward owner.
-- Factory has exactly one active pair config: permissionless XYK.
+- Factory has exactly one active XYK pair config. It remains `permissioned=true` until the official pair is seeded and verified, then becomes `permissioned=false` only after the open-public-creation transaction.
 - Native registry returns correct decimals for `ujuno` and first counterparty denom.
 - Factory `pairs` includes the first seeded pair.
 - Pair `pool` returns non-zero liquidity.
