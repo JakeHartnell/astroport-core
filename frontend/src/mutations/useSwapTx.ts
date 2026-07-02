@@ -4,7 +4,7 @@ import type { OfflineSigner } from "@cosmjs/proto-signing";
 import type { RegistryAsset, RegistryPool } from "../config/registry";
 import { createSwapMessage } from "../lib/astroport/messages";
 import { getSigningClient } from "../lib/cosmjs/clients";
-import { walletBalancesQueryKey } from "../queries/useWalletBalances";
+import { invalidateDexTxQueries, useTxRunner } from "../tx/useTxRunner";
 
 type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
@@ -16,15 +16,23 @@ async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClien
 
 export function useSwapTx(signerOrClient: OfflineSigner | SigningClientGetter | undefined, sender: string | undefined) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ pool, offerAsset, askAsset, amount, maxSpread }: { pool: RegistryPool; offerAsset: RegistryAsset; askAsset: RegistryAsset; amount: string; maxSpread: string }) => {
-      const client = await resolveSigningClient(signerOrClient);
-      if (!client || !sender) throw new Error("Connect a wallet before broadcasting");
-      const { msg, funds } = createSwapMessage(offerAsset, askAsset, amount, maxSpread);
-      return client.execute(sender, pool.pair, msg, "auto", undefined, funds);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: walletBalancesQueryKey(sender) });
+  const txRunner = useTxRunner();
+  const mutation = useMutation({
+    mutationFn: async (variables: { pool: RegistryPool; offerAsset: RegistryAsset; askAsset: RegistryAsset; amount: string; maxSpread: string }) => {
+      return txRunner.runTx({
+        title: "Swap",
+        pendingMessage: `Swapping ${variables.offerAsset.symbol} for ${variables.askAsset.symbol} on Juno…`,
+        variables,
+        broadcast: async ({ pool, offerAsset, askAsset, amount, maxSpread }) => {
+          const client = await resolveSigningClient(signerOrClient);
+          if (!client || !sender) throw new Error("Connect a wallet before broadcasting");
+          const { msg, funds } = createSwapMessage(offerAsset, askAsset, amount, maxSpread);
+          return client.execute(sender, pool.pair, msg, "auto", undefined, funds);
+        },
+        successMessage: (_result, { amount, offerAsset, askAsset }) => `Swap submitted: ${amount} ${offerAsset.symbol} → ${askAsset.symbol}.`,
+        onSuccess: (_result, { pool }) => invalidateDexTxQueries(queryClient, sender, pool),
+      });
     },
   });
+  return { ...mutation, txState: txRunner.state, resetTx: txRunner.reset };
 }
