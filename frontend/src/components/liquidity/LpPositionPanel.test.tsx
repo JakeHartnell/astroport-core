@@ -76,7 +76,7 @@ describe("LpPositionPanel", () => {
     expect(screen.getByText("500 TOKEN")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Add liquidity" }).getAttribute("href")).toBe("/pools/juno1pair");
     expect(screen.getByRole("link", { name: "Remove liquidity" }).getAttribute("href")).toBe("/pools/juno1pair");
-    expect((screen.getByRole("button", { name: "Stake soon" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("link", { name: "Stake / claim" }).getAttribute("href")).toBe("/pools/juno1pair#incentives");
   });
 
   it("shows wallet empty state when disconnected", () => {

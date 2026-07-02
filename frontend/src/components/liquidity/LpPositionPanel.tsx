@@ -101,7 +101,7 @@ export function LpPositionPanel({ pool, compact = false }: LpPositionPanelProps)
       <div className="lp-position-actions" aria-label="LP quick actions">
         <Link className="wallet-inline-action" to={poolHref}>Add liquidity</Link>
         <Link className="wallet-inline-action" to={poolHref}>Remove liquidity</Link>
-        <button className="wallet-inline-action" type="button" disabled title="Staking is not enabled in this frontend yet">Stake soon</button>
+        <Link className="wallet-inline-action" to={`${poolHref}#incentives`}>Stake / claim</Link>
       </div>
     </section>
   );
