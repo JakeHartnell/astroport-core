@@ -1,5 +1,5 @@
 import type { RegistryAsset } from "../../config/registry";
-import type { ExecuteMsg as PairExecuteMsg } from "../generated/Pair.types";
+import type { Asset, ExecuteMsg as PairExecuteMsg } from "../generated/Pair.types";
 import { nativeFunds, toAsset } from "./assetInfo";
 
 export function createSwapMessage(offerAsset: RegistryAsset, askAsset: RegistryAsset, amount: string, maxSpread: string) {
@@ -34,6 +34,10 @@ export function createProvideLiquidityMessage(assets: [RegistryAsset, RegistryAs
   };
 }
 
-export function createWithdrawLiquidityMessage() {
-  return { withdraw_liquidity: {} } satisfies PairExecuteMsg;
+export function createWithdrawLiquidityMessage(minAssetsToReceive?: Asset[]) {
+  return {
+    withdraw_liquidity: {
+      min_assets_to_receive: minAssetsToReceive && minAssetsToReceive.length > 0 ? minAssetsToReceive : undefined,
+    },
+  } satisfies PairExecuteMsg;
 }
