@@ -5,7 +5,7 @@ import type { Coin } from "@cosmjs/stargate";
 import type { RegistryPool } from "../config/registry";
 import { createWithdrawLiquidityMessage } from "../lib/astroport/messages";
 import { getSigningClient } from "../lib/cosmjs/clients";
-import { walletBalancesQueryKey } from "../queries/useWalletBalances";
+import { invalidateDexTxQueries, useTxRunner } from "../tx/useTxRunner";
 
 type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
@@ -17,15 +17,23 @@ async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClien
 
 export function useWithdrawLiquidityTx(signerOrClient: OfflineSigner | SigningClientGetter | undefined, sender: string | undefined) {
   const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ pool, lpAmount }: { pool: RegistryPool; lpAmount: string }) => {
-      const client = await resolveSigningClient(signerOrClient);
-      if (!client || !sender) throw new Error("Connect a wallet before broadcasting");
-      const funds: Coin[] = [{ denom: pool.lpToken, amount: lpAmount }];
-      return client.execute(sender, pool.pair, createWithdrawLiquidityMessage(), "auto", undefined, funds);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: walletBalancesQueryKey(sender) });
+  const txRunner = useTxRunner();
+  const mutation = useMutation({
+    mutationFn: async (variables: { pool: RegistryPool; lpAmount: string }) => {
+      return txRunner.runTx({
+        title: "Remove liquidity",
+        pendingMessage: `Withdrawing liquidity from ${variables.pool.label}…`,
+        variables,
+        broadcast: async ({ pool, lpAmount }) => {
+          const client = await resolveSigningClient(signerOrClient);
+          if (!client || !sender) throw new Error("Connect a wallet before broadcasting");
+          const funds: Coin[] = [{ denom: pool.lpToken, amount: lpAmount }];
+          return client.execute(sender, pool.pair, createWithdrawLiquidityMessage(), "auto", undefined, funds);
+        },
+        successMessage: (_result, { pool, lpAmount }) => `Withdrawal transaction submitted for ${pool.label}: ${lpAmount} LP tokens.`,
+        onSuccess: (_result, { pool }) => invalidateDexTxQueries(queryClient, sender, pool),
+      });
     },
   });
+  return { ...mutation, txState: txRunner.state, resetTx: txRunner.reset };
 }
