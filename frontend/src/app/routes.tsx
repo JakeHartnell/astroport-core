@@ -3,6 +3,7 @@ import { CreatePoolPage } from "../components/create/CreatePoolPage";
 import { LiquidityPage } from "../components/liquidity/LiquidityPage";
 import { PoolDetailPage } from "../components/pools/PoolDetailPage";
 import { PoolsPage } from "../components/pools/PoolsPage";
+import { PortfolioPage } from "../components/portfolio/PortfolioPage";
 import { SwapPage } from "../components/swap/SwapPage";
 
 export const navigationItems = [
@@ -12,7 +13,7 @@ export const navigationItems = [
   { to: "/create", label: "Create" },
 ] as const;
 
-function PortfolioPage() {
+function LegacyLiquidityPage() {
   return <LiquidityPage />;
 }
 
@@ -24,7 +25,7 @@ export function AppRoutes() {
       <Route path="/pools" element={<PoolsPage />} />
       <Route path="/pools/:pairAddress" element={<PoolDetailPage />} />
       <Route path="/portfolio" element={<PortfolioPage />} />
-      <Route path="/liquidity" element={<Navigate to="/portfolio" replace />} />
+      <Route path="/liquidity" element={<LegacyLiquidityPage />} />
       <Route path="/create" element={<CreatePoolPage />} />
       <Route path="*" element={<Navigate to="/swap" replace />} />
     </Routes>
