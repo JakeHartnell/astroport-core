@@ -21,6 +21,7 @@ import { usePoolMetrics, usePoolReserves } from "../../queries/usePools";
 import { getWalletBalanceAmount, useWalletBalances, type WalletBalance } from "../../queries/useWalletBalances";
 import { useWallet } from "../../wallet/WalletContext";
 import { EmptyState, ErrorState, ExplorerLink, RiskBadgeList, Skeleton, TokenLogo } from "../common";
+import { PriceCandleChart } from "../charts/PriceCandleChart";
 
 export function PoolTable({ pools }: { pools: RegistryPool[] }) {
   const [controls, setControls] = useState<PoolListControls>(DEFAULT_POOL_LIST_CONTROLS);
@@ -148,6 +149,7 @@ function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metr
           {metrics?.incentivized || (metrics?.incentivesApr ?? 0) > 0 ? <span className="status-pill status-ok">incentivized</span> : null}
         </div>
         <p>{pool.notes}</p>
+        <PriceCandleChart pool={pool} title="Pool price sparkline" compact limit={32} />
         <div className="pool-assets">
           {pool.assets.map((asset, index) => (
             <div key={asset.id}>

@@ -257,6 +257,26 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .create-pool-assets { margin-top: 0; }
 
 
+.price-chart-card { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--juno-color-border); border-radius: var(--juno-radius-lg); background: rgba(255,255,255,0.035); }
+.price-chart-compact { padding: 10px; gap: 8px; box-shadow: none; }
+.price-chart-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.price-chart-header h3 { margin: 0; }
+.price-chart-subtitle { margin: 4px 0 0; color: var(--juno-color-text-muted); font-size: 0.9rem; }
+.chart-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.segmented-control { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--juno-color-border); border-radius: var(--juno-radius-pill); background: rgba(0,0,0,0.16); }
+.segmented-control button { border: 0; border-radius: var(--juno-radius-pill); background: transparent; color: var(--juno-color-text-muted); padding: 7px 11px; cursor: pointer; }
+.segmented-control button.active { color: var(--juno-color-canvas); background: var(--juno-color-cyan); }
+.chart-loading { color: var(--juno-color-text-muted); }
+.chart-render { display: grid; gap: 10px; min-width: 0; }
+.price-chart-svg { width: 100%; height: 260px; overflow: visible; border-radius: var(--juno-radius-md); background: linear-gradient(180deg, rgba(51,214,255,0.08), rgba(255,255,255,0.02)); }
+.price-chart-compact .price-chart-header h3 { font-size: 0.95rem; }
+.price-chart-compact .price-chart-subtitle { font-size: 0.78rem; }
+.price-chart-compact .price-chart-svg { height: 86px; }
+.candle-up line, .candle-up rect { stroke: #59f0b5; fill: rgba(89, 240, 181, 0.68); }
+.candle-down line, .candle-down rect { stroke: #ff8f8f; fill: rgba(255, 143, 143, 0.68); }
+.chart-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; color: var(--juno-color-text-muted); font-size: 0.9rem; }
+.chart-summary strong { color: var(--juno-color-text); }
+
 @media (max-width: 860px) {
   .page-grid, .swap-page-grid { grid-template-columns: 1fr; }
   .header-inner { align-items: flex-start; flex-direction: column; }

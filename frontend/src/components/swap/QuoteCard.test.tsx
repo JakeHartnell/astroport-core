@@ -1,8 +1,18 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { dexRegistry } from "../../config/registry";
 import type { RouteQuote } from "../../queries/useSwapQuote";
 import { QuoteCard } from "./QuoteCard";
+
+vi.mock("../../queries/usePools", () => ({
+  usePoolCandles: () => ({
+    data: [],
+    access: { source: "indexer", isFallback: false, isMock: false, isStale: false },
+    isLoading: false,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
 
 describe("QuoteCard layout", () => {
   it("marks quote details so long values can wrap inside the card", () => {

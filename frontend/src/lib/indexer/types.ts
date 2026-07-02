@@ -48,6 +48,40 @@ export type IndexerPoolMetrics = {
   isMock: boolean;
 };
 
+export type IndexerCandleInterval = "5m" | "1h" | "1d";
+
+export type IndexerPoolCandle = {
+  poolId: string | null;
+  pairAddress: string | null;
+  baseAsset: string | null;
+  quoteAsset: string | null;
+  interval: IndexerCandleInterval | string;
+  bucketStart: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  volumeQuote: number;
+  tradeCount: number;
+  dataSource: "indexer" | "mock" | string;
+  isMock: boolean;
+};
+
+export type IndexerPoolCandlesResponse = IndexerPage<IndexerPoolCandle> & {
+  meta?: {
+    poolId?: string | null;
+    pairAddress?: string | null;
+    interval?: IndexerCandleInterval | string;
+    baseAsset?: string | null;
+    quoteAsset?: string | null;
+    from?: string | null;
+    to?: string | null;
+    dataSource?: "indexer" | "mock" | string;
+    isMock?: boolean;
+  };
+};
+
 export type IndexerPoolPosition = {
   walletAddress: string;
   poolId: string;

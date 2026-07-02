@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import type { RegistryPool } from "../config/registry";
 import { queryPairPool } from "../lib/astroport/queries";
-import { loadPoolMetrics, loadStatsDashboard, loadWalletIndexerData, type DataAccessState } from "../lib/data-access/indexerFallback";
+import { loadPoolCandles, loadPoolMetrics, loadStatsDashboard, loadWalletIndexerData, type DataAccessState, type PoolCandleRange } from "../lib/data-access/indexerFallback";
+import type { IndexerCandleInterval } from "../lib/indexer/types";
 import type { PoolMetricsByPair } from "../lib/pools/poolList";
 import type { StatsDashboardData } from "../lib/stats/dashboard";
 
@@ -44,6 +45,25 @@ export function useStatsDashboard(pools: RegistryPool[]) {
   return {
     ...query,
     data: query.data?.data ?? ({ topPools: [] } as StatsDashboardData),
+    access: query.data?.state as DataAccessState | undefined,
+  };
+}
+
+export function usePoolCandles(pool: RegistryPool | undefined, options: { interval?: IndexerCandleInterval; range?: PoolCandleRange; limit?: number } = {}) {
+  const interval = options.interval ?? "1h";
+  const range = options.range ?? "7d";
+  const limit = options.limit ?? 200;
+  const query = useQuery({
+    queryKey: ["pool-candles", pool?.pair, interval, range, limit],
+    enabled: Boolean(pool),
+    staleTime: 30_000,
+    retry: false,
+    queryFn: () => loadPoolCandles(pool, { interval, range, limit }),
+  });
+
+  return {
+    ...query,
+    data: query.data?.data ?? [],
     access: query.data?.state as DataAccessState | undefined,
   };
 }
