@@ -19,6 +19,7 @@ This service uses a small TypeScript/Node block poller over Juno Tendermint RPC/
 - Reorg-aware block ledger fields (`height`, `block_hash`, `parent_hash`) and configurable confirmation depth.
 - Juno RPC/REST/WebSocket configuration placeholders for poll/backfill/live modes.
 - Unit-tested event normalization for factory, pair, and incentives events.
+- Swap-derived pool OHLC candle writes for `5m`, `1h`, and `1d` intervals plus a replayable candle backfill command.
 
 ## Configuration
 
@@ -62,6 +63,15 @@ npm run migrate
 npm run dev
 ```
 
+Backfill candles from already-ingested swaps after migrations have run:
+
+```bash
+cd services/indexer
+npm run backfill:candles -- --pair=juno1... --from=2026-07-01T00:00:00Z --to=2026-07-02T00:00:00Z --limit=10000
+```
+
+The backfill reuses `token_candles`, keyed by `(chain_id, pair_address, asset, quote_asset, interval, bucket_start)`, and is idempotent with respect to inserted swap rows. Prices are derived from swap input/output amounts using a deterministic base/quote asset ordering; pass decimal metadata into the pure helpers when available for off-chain recalculation.
+
 A live RPC is only needed for `npm run dev`. Typecheck, tests, build, and SQL migration review do not need chain or database access.
 
 ## Docker
@@ -86,5 +96,5 @@ The `indexer` container waits on Postgres via Compose dependency and runs migrat
 ## Notes for follow-up issues
 
 - `START_HEIGHT` should be updated to the actual factory deployment height before a production backfill.
-- Pool state snapshots, prices, and candles are schema-ready but need pricing/oracle logic in the metrics/API issues.
+- Pool state snapshots and USD oracle pricing still need production-quality valuation logic; candles are swap-derived and will be most accurate once asset decimal metadata is wired from the native registry/asset lists.
 - The frontend currently reads `VITE_DEX_INDEXER_URL`; this service intentionally exposes ingestion/schema first and does not add an HTTP API yet.

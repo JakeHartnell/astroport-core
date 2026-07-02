@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import pg from "pg";
+import { aggregateSwapsToCandles, bucketStartFor, deriveCanonicalSwapPrice, SUPPORTED_CANDLE_INTERVALS } from "./candles.js";
 import type { IndexerConfig } from "./config.js";
 import type { IncentiveEvent, LiquidityEvent, NormalizedEvent, PoolCreatedEvent, SwapEvent } from "./events.js";
 
@@ -98,11 +99,12 @@ async function upsertPool(client: PgClient, chainId: string, event: PoolCreatedE
 }
 
 async function insertSwap(client: PgClient, chainId: string, event: SwapEvent): Promise<void> {
-  await client.query(
+  const inserted = await client.query<{ id: string; pool_id: string | null }>(
     `INSERT INTO swaps(chain_id, pair_address, height, block_time, tx_hash, msg_index, event_index, trader,
        offer_asset, offer_amount, ask_asset, return_amount, spread_amount, commission_amount, raw_event)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
-     ON CONFLICT DO NOTHING`,
+     ON CONFLICT DO NOTHING
+     RETURNING id, pool_id`,
     [
       chainId,
       event.pairAddress,
@@ -121,6 +123,93 @@ async function insertSwap(client: PgClient, chainId: string, event: SwapEvent): 
       JSON.stringify(event.raw),
     ],
   );
+  if (inserted.rowCount === 0) return;
+  await upsertCandlesForSwap(client, chainId, event);
+}
+
+async function upsertCandlesForSwap(client: PgClient, chainId: string, event: SwapEvent): Promise<void> {
+  const derived = deriveCanonicalSwapPrice({
+    pairAddress: event.pairAddress,
+    blockTime: event.blockTime,
+    offerAsset: event.offerAsset,
+    offerAmount: event.offerAmount,
+    askAsset: event.askAsset,
+    returnAmount: event.returnAmount,
+  });
+  if (!derived) return;
+  const pool = await client.query<{ id: string }>(`SELECT id FROM pools WHERE chain_id = $1 AND pair_address = $2`, [chainId, event.pairAddress]);
+  const poolId = pool.rows[0]?.id ?? null;
+  for (const interval of SUPPORTED_CANDLE_INTERVALS) {
+    await client.query(
+      `INSERT INTO token_candles(chain_id, pool_id, pair_address, asset, quote_asset, interval, bucket_start, open, high, low, close, volume, volume_usd, trade_count, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$8,$8,$9,$10,1,'indexer')
+       ON CONFLICT (chain_id, pair_address, asset, quote_asset, interval, bucket_start) DO UPDATE
+       SET high = GREATEST(token_candles.high, EXCLUDED.high),
+           low = LEAST(token_candles.low, EXCLUDED.low),
+           close = EXCLUDED.close,
+           volume = token_candles.volume + EXCLUDED.volume,
+           volume_usd = COALESCE(token_candles.volume_usd, 0) + COALESCE(EXCLUDED.volume_usd, 0),
+           trade_count = token_candles.trade_count + 1,
+           pool_id = COALESCE(token_candles.pool_id, EXCLUDED.pool_id),
+           updated_at = now()`,
+      [chainId, poolId, event.pairAddress, derived.baseAsset, derived.quoteAsset, interval, bucketStartFor(event.blockTime, interval), derived.price, derived.volume, derived.volumeQuote],
+    );
+  }
+}
+
+export async function backfillTokenCandles(
+  client: PgClient,
+  params: { chainId: string; pairAddress?: string; from?: string; to?: string; batchSize?: number } = { chainId: "juno-1" },
+): Promise<number> {
+  type SwapBackfillRow = { pair_address: string; block_time: string; offer_asset?: string; offer_amount?: string; ask_asset?: string; return_amount?: string; height: string; tx_hash: string; msg_index: string; event_index: string };
+  const result = await client.query<SwapBackfillRow>(
+    `SELECT pair_address, block_time, offer_asset, offer_amount, ask_asset, return_amount,
+            $1::text AS chain_id, height, tx_hash, msg_index, event_index
+     FROM swaps
+     WHERE chain_id = $1
+       AND ($2::text IS NULL OR pair_address = $2)
+       AND ($3::timestamptz IS NULL OR block_time >= $3)
+       AND ($4::timestamptz IS NULL OR block_time <= $4)
+     ORDER BY height ASC, id ASC
+     LIMIT $5`,
+    [params.chainId, params.pairAddress ?? null, params.from ?? null, params.to ?? null, params.batchSize ?? 10_000],
+  );
+  const swaps = result.rows.map((row) => ({
+    pairAddress: row.pair_address,
+    blockTime: row.block_time,
+    offerAsset: row.offer_asset,
+    offerAmount: row.offer_amount,
+    askAsset: row.ask_asset,
+    returnAmount: row.return_amount,
+  }));
+  const poolIds = new Map<string, string | null>();
+  for (const row of result.rows) {
+    if (poolIds.has(row.pair_address)) continue;
+    const pool = await client.query<{ id: string }>(`SELECT id FROM pools WHERE chain_id = $1 AND pair_address = $2`, [params.chainId, row.pair_address]);
+    poolIds.set(row.pair_address, pool.rows[0]?.id ?? null);
+  }
+  for (const interval of SUPPORTED_CANDLE_INTERVALS) {
+    const candles = aggregateSwapsToCandles(swaps, interval);
+    for (const candle of candles) {
+      await client.query(
+        `INSERT INTO token_candles(chain_id, pool_id, pair_address, asset, quote_asset, interval, bucket_start, open, high, low, close, volume, volume_usd, trade_count, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'backfill')
+         ON CONFLICT (chain_id, pair_address, asset, quote_asset, interval, bucket_start) DO UPDATE
+         SET open = EXCLUDED.open,
+             high = EXCLUDED.high,
+             low = EXCLUDED.low,
+             close = EXCLUDED.close,
+             volume = EXCLUDED.volume,
+             volume_usd = EXCLUDED.volume_usd,
+             trade_count = EXCLUDED.trade_count,
+             pool_id = COALESCE(token_candles.pool_id, EXCLUDED.pool_id),
+             source = 'backfill',
+             updated_at = now()`,
+        [params.chainId, poolIds.get(candle.pairAddress) ?? null, candle.pairAddress, candle.baseAsset, candle.quoteAsset, interval, candle.bucketStart, candle.open, candle.high, candle.low, candle.close, candle.volume, candle.volumeQuote, candle.tradeCount],
+      );
+    }
+  }
+  return result.rowCount ?? 0;
 }
 
 async function insertLiquidityEvent(client: PgClient, chainId: string, event: LiquidityEvent): Promise<void> {

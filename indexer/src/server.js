@@ -25,6 +25,11 @@ function parseQuery(searchParams) {
     limit: searchParams.get("limit") ?? undefined,
     cursor: searchParams.get("cursor") ?? undefined,
     pair: searchParams.get("pair") ?? undefined,
+    interval: searchParams.get("interval") ?? undefined,
+    from: searchParams.get("from") ?? undefined,
+    to: searchParams.get("to") ?? undefined,
+    baseAsset: searchParams.get("baseAsset") ?? searchParams.get("base_asset") ?? undefined,
+    quoteAsset: searchParams.get("quoteAsset") ?? searchParams.get("quote_asset") ?? undefined,
   };
 }
 
@@ -69,6 +74,10 @@ export function createIndexerApi({ store = createEmptyStore(), rateLimit = DEFAU
       if (url.pathname === "/openapi.json") return jsonResponse(res, 200, openApiDocument);
       if (url.pathname === "/stats") return jsonResponse(res, 200, store.getProtocolStats());
       if (pathParts[0] === "pools" && pathParts.length === 1) return jsonResponse(res, 200, store.listPools(query));
+      if (pathParts[0] === "pools" && pathParts[2] === "candles") {
+        const candles = store.listPoolCandles(pathParts[1], query);
+        return candles ? jsonResponse(res, 200, candles) : jsonResponse(res, 404, { error: "pool_not_found" });
+      }
       if (pathParts[0] === "pools" && pathParts.length === 2) {
         const pool = store.getPool(pathParts[1]);
         return pool ? jsonResponse(res, 200, pool) : jsonResponse(res, 404, { error: "pool_not_found" });
@@ -78,6 +87,7 @@ export function createIndexerApi({ store = createEmptyStore(), rateLimit = DEFAU
       if (pathParts[0] === "wallets" && pathParts[2] === "history") return jsonResponse(res, 200, store.listWalletHistory(pathParts[1], query));
       return jsonResponse(res, 404, { error: "not_found" });
     } catch (error) {
+      if (error instanceof RangeError) return jsonResponse(res, 400, { error: "bad_request", message: error.message });
       return jsonResponse(res, 500, { error: "internal_error", message: error instanceof Error ? error.message : String(error) });
     }
   });
