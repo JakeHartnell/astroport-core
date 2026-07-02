@@ -19,6 +19,7 @@ INDEXER_DEV_MOCKS=true PORT=8787 npm start
 - `GET /stats` — protocol totals: TVL, 24h/7d volume, 24h fees, pool counts.
 - `GET /pools?limit=50&cursor=0` — pool list with `tvlUsd`, `volume24hUsd`, `feeApr`, `incentivesApr`, `totalApr`, fees and asset reserves.
 - `GET /pools/:id` — detail by pool id or pair address.
+- `GET /pools/:id/candles?interval=1h&from=&to=&baseAsset=&quoteAsset=&limit=200&cursor=0` — paginated OHLC candles for charting. Supported intervals are `5m`, `1h`, and `1d`; `limit` is clamped to 500. Production defaults are empty until the backing `token_candles` table is populated. Local dev mock candles are explicitly marked with `dataSource: "mock"` and `isMock: true`.
 - `GET /pools/:id/positions?limit=50&cursor=0` — paginated LP positions in a pool.
 - `GET /wallets/:addr/positions?limit=50&cursor=0` — paginated LP positions for a wallet.
 - `GET /wallets/:addr/history?limit=50&cursor=0` — paginated wallet transaction history.

@@ -1,10 +1,11 @@
 import { normalizePoolRecord, normalizePositionRecord, normalizeTxRecord } from "./calculations.js";
+import { filterCandles, normalizeCandleRecord, parseCandleLimit, validateCandleInterval } from "./candles.js";
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
 
-export function paginate(items, { limit = DEFAULT_PAGE_LIMIT, cursor } = {}) {
-  const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_PAGE_LIMIT, 1), MAX_PAGE_LIMIT);
+export function paginate(items, { limit = DEFAULT_PAGE_LIMIT, cursor, maxLimit = MAX_PAGE_LIMIT } = {}) {
+  const safeLimit = Math.min(Math.max(Number(limit) || DEFAULT_PAGE_LIMIT, 1), maxLimit);
   const start = cursor ? Math.max(Number(cursor) || 0, 0) : 0;
   const page = items.slice(start, start + safeLimit);
   const nextCursor = start + safeLimit < items.length ? String(start + safeLimit) : null;
@@ -12,10 +13,11 @@ export function paginate(items, { limit = DEFAULT_PAGE_LIMIT, cursor } = {}) {
 }
 
 export class InMemoryMetricsStore {
-  constructor({ pools = [], positions = [], transactions = [] } = {}) {
+  constructor({ pools = [], positions = [], transactions = [], candles = [] } = {}) {
     this.pools = pools.map(normalizePoolRecord);
     this.positions = positions.map(normalizePositionRecord);
     this.transactions = transactions.map(normalizeTxRecord);
+    this.candles = candles.map(normalizeCandleRecord);
   }
 
   listPools(query = {}) {
@@ -27,6 +29,29 @@ export class InMemoryMetricsStore {
 
   getPool(id) {
     return this.pools.find((pool) => pool.id === id || pool.pairAddress === id || pool.pair === id) ?? null;
+  }
+
+  listPoolCandles(poolId, query = {}) {
+    const interval = validateCandleInterval(query.interval ?? "1h");
+    const pool = this.getPool(poolId);
+    if (!pool) return null;
+    const matching = this.candles.filter((candle) => candle.poolId === pool.id || candle.pairAddress === pool.pairAddress || candle.poolId === pool.pairAddress);
+    const rows = filterCandles(matching, { ...query, interval });
+    const limited = paginate(rows, { ...query, limit: parseCandleLimit(query.limit), maxLimit: 500 });
+    return {
+      ...limited,
+      meta: {
+        poolId: pool.id,
+        pairAddress: pool.pairAddress,
+        interval,
+        baseAsset: query.baseAsset ?? null,
+        quoteAsset: query.quoteAsset ?? null,
+        from: query.from ?? null,
+        to: query.to ?? null,
+        dataSource: rows.some((candle) => candle.isMock) ? "mock" : "indexer",
+        isMock: rows.some((candle) => candle.isMock),
+      },
+    };
   }
 
   getProtocolStats() {
@@ -126,5 +151,10 @@ export function createDevMockStore(now = new Date("2026-07-02T00:00:00.000Z")) {
       dataSource: "mock",
       isMock: true,
     }],
+    candles: [
+      { poolId: pairAddress, pairAddress, baseAsset: "ujuno", quoteAsset: "ibc/mock-usdc", interval: "1h", bucketStart: new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString(), open: 1.18, high: 1.22, low: 1.17, close: 1.2, volume: 100, volumeQuote: 120, tradeCount: 4, dataSource: "mock", isMock: true },
+      { poolId: pairAddress, pairAddress, baseAsset: "ujuno", quoteAsset: "ibc/mock-usdc", interval: "1h", bucketStart: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(), open: 1.2, high: 1.27, low: 1.19, close: 1.25, volume: 140, volumeQuote: 175, tradeCount: 6, dataSource: "mock", isMock: true },
+      { poolId: pairAddress, pairAddress, baseAsset: "ujuno", quoteAsset: "ibc/mock-usdc", interval: "1h", bucketStart: new Date(now.getTime() - 60 * 60 * 1000).toISOString(), open: 1.25, high: 1.28, low: 1.21, close: 1.24, volume: 90, volumeQuote: 111.6, tradeCount: 3, dataSource: "mock", isMock: true },
+    ],
   });
 }
