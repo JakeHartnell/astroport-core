@@ -59,6 +59,10 @@ dl { margin: 0; display: grid; gap: 10px; }
 dl div { display: flex; justify-content: space-between; gap: 12px; }
 dt { color: #a9b6c7; }
 dd { margin: 0; font-weight: 700; }
+.quote-details { min-width: 0; }
+.quote-details div { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); align-items: start; }
+.quote-detail-value { min-width: 0; text-align: right; overflow-wrap: anywhere; word-break: break-word; }
+.quote-detail-value a { overflow-wrap: anywhere; word-break: break-word; }
 .primary-action, .wallet-button, .action-card button { margin-top: 16px; border: 0; border-radius: 16px; padding: 12px 16px; background: #80edff; color: #071019; font-weight: 800; cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: 0.48; }
 .wallet-button { margin-top: 0; }

@@ -19,14 +19,14 @@ export function QuoteCard({ quote, askAsset, isLoading, error, pool, slippagePer
       {isLoading ? <strong>Querying pair…</strong> : null}
       {error ? <p className="error-text">Quote unavailable: {error instanceof Error ? error.message : String(error)}. Keep registry data visible; do not submit until simulation recovers.</p> : null}
       {quote && askAsset ? (
-        <dl>
-          <div><dt>Return</dt><dd>{formatAmount(quote.return_amount, askAsset.decimals)} {askAsset.symbol}</dd></div>
-          <div><dt>Minimum receive ({slippagePercent}%)</dt><dd>{formatAmount(minimumReceive(quote.return_amount, slippagePercent), askAsset.decimals)} {askAsset.symbol}</dd></div>
-          <div><dt>Spread</dt><dd>{formatAmount(quote.spread_amount, askAsset.decimals)} {askAsset.symbol}</dd></div>
-          <div><dt>Commission / fee</dt><dd>{formatAmount(quote.commission_amount, askAsset.decimals)} {askAsset.symbol} · {pool.feeBps} bps</dd></div>
-          <div><dt>Route</dt><dd>Direct XYK pair only</dd></div>
-          <div><dt>Pair</dt><dd><ExplorerLink href={pool.explorer}>{pool.pair}</ExplorerLink></dd></div>
-          <div><dt>Source</dt><dd>pair simulation{updatedAt ? ` · ${updatedAt}` : ""}</dd></div>
+        <dl className="quote-details">
+          <div><dt>Return</dt><dd className="quote-detail-value">{formatAmount(quote.return_amount, askAsset.decimals)} {askAsset.symbol}</dd></div>
+          <div><dt>Minimum receive ({slippagePercent}%)</dt><dd className="quote-detail-value">{formatAmount(minimumReceive(quote.return_amount, slippagePercent), askAsset.decimals)} {askAsset.symbol}</dd></div>
+          <div><dt>Spread</dt><dd className="quote-detail-value">{formatAmount(quote.spread_amount, askAsset.decimals)} {askAsset.symbol}</dd></div>
+          <div><dt>Commission / fee</dt><dd className="quote-detail-value">{formatAmount(quote.commission_amount, askAsset.decimals)} {askAsset.symbol} · {pool.feeBps} bps</dd></div>
+          <div><dt>Route</dt><dd className="quote-detail-value">Direct XYK pair only</dd></div>
+          <div><dt>Pair</dt><dd className="quote-detail-value"><ExplorerLink href={pool.explorer}>{pool.pair}</ExplorerLink></dd></div>
+          <div><dt>Source</dt><dd className="quote-detail-value">pair simulation{updatedAt ? ` · ${updatedAt}` : ""}</dd></div>
         </dl>
       ) : <p>Enter an amount to quote the direct XYK pair.</p>}
     </section>
