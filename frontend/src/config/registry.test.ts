@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dexRegistry, parseDexRegistry } from "./registry";
+import { applyDexRegistryEnvOverrides, dexRegistry, parseDexRegistry } from "./registry";
 
 describe("dex registry", () => {
   it("loads the committed juno-1 registry", () => {
@@ -34,5 +34,21 @@ describe("dex registry", () => {
     expect(parseDexRegistry(stableRegistry).pools[0].type).toBe("stable");
     expect(parseDexRegistry(concentratedRegistry).pools[0].type).toBe("concentrated");
     expect(() => parseDexRegistry({ ...dexRegistry, pools: [{ ...dexRegistry.pools[0], type: "placeholder" }] })).toThrow(/xyk, stable, or concentrated/);
+  });
+
+  it("allows deploy environments to override public endpoints", () => {
+    import.meta.env.VITE_DEX_RPC_URL = "https://rpc.host.invalid";
+    import.meta.env.VITE_DEX_REST_URL = "https://rest.host.invalid";
+    import.meta.env.VITE_DEX_EXPLORER_URL = "https://explorer.host.invalid/juno";
+
+    const overridden = applyDexRegistryEnvOverrides(dexRegistry);
+
+    expect(overridden.rpcEndpoint).toBe("https://rpc.host.invalid");
+    expect(overridden.restEndpoint).toBe("https://rest.host.invalid");
+    expect(overridden.explorerBaseUrl).toBe("https://explorer.host.invalid/juno");
+
+    delete import.meta.env.VITE_DEX_RPC_URL;
+    delete import.meta.env.VITE_DEX_REST_URL;
+    delete import.meta.env.VITE_DEX_EXPLORER_URL;
   });
 });

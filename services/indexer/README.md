@@ -90,6 +90,64 @@ docker compose up --build
 
 The `indexer` container waits on Postgres via Compose dependency and runs migrations before starting the poller.
 
+## Production deploy readiness
+
+This repository does not perform external deployment, DNS changes, or secret setup. The intended production shape is a containerized indexer/API service plus managed Postgres, exposed at one stable HTTPS origin that the frontend consumes through `VITE_DEX_INDEXER_URL`.
+
+Recommended platform settings:
+
+| Setting | Value |
+| --- | --- |
+| Build context | `services/indexer` |
+| Dockerfile | `services/indexer/Dockerfile` |
+| Start command | image default: `node dist/src/migrate.js && node dist/src/index.js` |
+| Database | Managed Postgres with backups and point-in-time recovery enabled |
+| Public URL | Stable HTTPS API origin, for example `https://indexer.<domain>` |
+| Frontend config | Set `VITE_DEX_INDEXER_URL` in Vercel preview/production envs to this origin |
+
+Production environment variables should mirror `.env.example`, with these deployment-specific values set by the host secret manager:
+
+- `DATABASE_URL`: managed Postgres connection string; require TLS if the provider supports `?sslmode=require`.
+- `START_HEIGHT`: factory deployment height for first backfill, not `1` unless a full-chain backfill is intentional.
+- `JUNO_RPC_URL`, `JUNO_REST_URL`, `JUNO_WS_URL`: provider endpoints with agreed rate limits.
+- `PRICE_PROVIDER_*`: optional price source credentials; never commit real keys.
+
+Runbook for a release:
+
+1. Build and push the Docker image from `services/indexer` after `Indexer CI` passes.
+2. Provision/attach managed Postgres and set the environment variables above.
+3. Deploy one replica first; container startup runs migrations before the poller starts.
+4. Confirm ingestion advances by checking logs for processed block ranges and by inspecting `indexer_cursors` in Postgres.
+5. Expose the API/indexer service at the stable HTTPS URL, then set frontend `VITE_DEX_INDEXER_URL` for preview and production.
+6. Smoke-check the frontend preview and production domains after the Vercel deploy completes.
+
+## Health checks and monitoring
+
+Until the HTTP API process is deployed alongside this poller, use platform process health plus database/RPC smoke checks for the worker container:
+
+```bash
+# Database connectivity from a one-off job/container with the same DATABASE_URL.
+npm run migrate
+
+# Cursor freshness: should move over time once the poller is running.
+psql "$DATABASE_URL" -c "select namespace, height, updated_at from indexer_cursors order by updated_at desc limit 5;"
+```
+
+When the API surface is enabled, expose `GET /health` at the same stable origin used by `VITE_DEX_INDEXER_URL`. The frontend client already probes `/health` before reading `/stats`, `/pools`, `/prices`, `/wallets/:address/*`, and candle endpoints. The health response should be JSON with at least:
+
+```json
+{ "status": "ok", "chainId": "juno-1", "latestIndexedHeight": 123456 }
+```
+
+Alert on:
+
+- container restart loops or non-zero exits;
+- migration failures during deploy;
+- Postgres CPU/storage/connection saturation;
+- cursor lag above the agreed SLO, e.g. indexed height more than 50 confirmed blocks behind RPC head;
+- repeated RPC rate-limit/network failures;
+- API `/health` not returning `status: ok` once API hosting is enabled.
+
 ## Ingestion model
 
 1. Read the `indexer_cursors` row for `astroport-juno-v1`.
