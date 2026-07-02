@@ -115,8 +115,19 @@ Before opening public pair creation, keep the factory `xyk` pair config
   slippage bounds.
 
 Only after those checks pass, broadcast `update_pair_config` with the same pair
-code ID and fees to set `permissioned=false` (replace `123` with
-`code_ids.astroport-pair` from the rendered config):
+code ID and fees to set `permissioned=false`. Generate the message and
+copy/paste-safe `junod tx wasm execute` command from the rendered config so the
+factory address, chain ID, and pair code ID cannot drift:
+
+```sh
+python3 scripts/build_juno_v1_open_pair_config_tx.py \
+  --config deployment/juno-v1-testnet.json \
+  --from "$JUNO_OWNER" \
+  --fees 7500ujunox
+```
+
+The generated execute message should match this shape (with `code_id` taken from
+`code_ids.astroport-pair` in the rendered config):
 
 ```json
 {

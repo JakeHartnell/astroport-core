@@ -53,6 +53,8 @@ LAUNCH_GATE_TEXT = (
     "provide_liquidity",
     "round-trip swap",
     "update_pair_config",
+    "python3 scripts/build_juno_v1_open_pair_config_tx.py",
+    "junod tx wasm execute",
     "permissioned=false",
     "deployment/tx/uni-7/update-pair-config-open-xyk.json",
 )
@@ -121,7 +123,7 @@ def main() -> None:
     print("OK: Juno v1 operator tx checklist matches deployment helpers")
     print(
         f"store_txs={len(STORE_KEYS)} instantiate_txs={len(ADDRESS_KEYS)} "
-        f"manual_values={len(REQUIRED_MANUAL_ENV)} first_pool_gate=permissioned"
+        f"manual_values={len(REQUIRED_MANUAL_ENV)} first_pool_gate=permissioned open_pair_config_helper=true"
     )
 
 

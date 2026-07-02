@@ -105,6 +105,25 @@ python3 scripts/check_juno_v1_deployment_template.py deployment/juno-v1-testnet.
 
 The fill script rewires dependent instantiate fields from the top-level values, including factory pair code ID, whitelist/tracker config, router factory address, native incentives denom, and oracle asset info.
 
+## Post-smoke open-XYK command
+
+After the first pool is registered, seeded, and smoke-checked, generate the
+factory owner/governance execute command that opens public XYK pair creation:
+
+```sh
+python3 scripts/build_juno_v1_open_pair_config_tx.py \
+  --config deployment/juno-v1-testnet.json \
+  --from "$JUNO_OWNER" \
+  --fees 7500ujunox
+```
+
+The helper reads `addresses.astroport-factory`, `network.chain_id`, and
+`post_update_state.astroport-factory.pair_configs[0]` from the rendered config,
+then prints the guarded `update_pair_config` message and a `junod tx wasm
+execute ... > deployment/tx/uni-7/update-pair-config-open-xyk.json` command.
+Only run it after the official first pool passes pair lookup, non-zero
+liquidity, and tiny swap smoke checks.
+
 ## Frontend consumption
 
 After rendering `deployment/juno-v1-testnet.json`, copy or import it alongside the generated declaration file:
@@ -125,7 +144,8 @@ See `juno-v1-frontend-config.example.ts` for a dependency-free fixture that demo
 
 ## Scope guardrails
 
-- v1 is XYK-only and permissionless.
+- v1 is XYK-only. It starts permissioned for the first-pool launch gate, then
+  opens public XYK pair creation only after smoke checks pass.
 - No new DEX token is introduced; incentives use the configured native denom.
 - Do not add stable pairs, LSTs, perps, or yield surfaces to this config.
 - Frontend should read canonical contract addresses from `addresses` and discover pools through factory queries.

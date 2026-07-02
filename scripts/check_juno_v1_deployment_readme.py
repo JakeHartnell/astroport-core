@@ -49,6 +49,7 @@ REQUIRED_SECTIONS = (
     "## Required values after upload / instantiate",
     "## Extract values from tx JSON",
     "## Render command shape",
+    "## Post-smoke open-XYK command",
     "## Frontend consumption",
     "## Scope guardrails",
 )
@@ -58,6 +59,8 @@ REQUIRED_COMMANDS = (
     "python3 scripts/extract_juno_v1_tx_sets.py",
     "python3 scripts/fill_juno_v1_deployment_config.py",
     "python3 scripts/check_juno_v1_deployment_template.py deployment/juno-v1-testnet.json",
+    "python3 scripts/build_juno_v1_open_pair_config_tx.py",
+    "deployment/tx/uni-7/update-pair-config-open-xyk.json",
 )
 FRONTEND_SNIPPET = (
     'import deployment from "./juno-v1-testnet.json";',
@@ -65,7 +68,7 @@ FRONTEND_SNIPPET = (
     "const config = deployment satisfies JunoV1FrontendDeploymentConfig;",
 )
 SCOPE_GUARDRAILS = (
-    "v1 is XYK-only and permissionless.",
+    "v1 is XYK-only. It starts permissioned for the first-pool launch gate",
     "No new DEX token is introduced; incentives use the configured native denom.",
     "Do not add stable pairs, LSTs, perps, or yield surfaces to this config.",
     "discover pools through factory queries",
