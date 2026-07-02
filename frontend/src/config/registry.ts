@@ -14,13 +14,15 @@ export type RegistryPool = {
   label: string;
   pair: string;
   lpToken: string;
-  type: "xyk";
+  type: "xyk" | "stable" | "concentrated";
   feeBps: number;
   assets: [RegistryAsset, RegistryAsset];
   explorer: string;
   enabled: boolean;
   featured?: boolean;
   notes?: string;
+  source?: "registry" | "factory";
+  verified?: boolean;
 };
 
 export type DexRegistry = {
@@ -88,7 +90,9 @@ function parsePool(value: unknown, index: number): RegistryPool {
   assertString(value.label, `${label}.label`);
   assertJunoAddress(value.pair, `${label}.pair`);
   assertString(value.lpToken, `${label}.lpToken`);
-  if (value.type !== "xyk") throw new Error(`${label}.type must be xyk for v1`);
+  if (value.type !== "xyk" && value.type !== "stable" && value.type !== "concentrated") {
+    throw new Error(`${label}.type must be xyk, stable, or concentrated`);
+  }
   if (typeof value.feeBps !== "number" || value.feeBps < 0 || value.feeBps > 10_000) {
     throw new Error(`${label}.feeBps must be between 0 and 10000`);
   }

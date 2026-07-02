@@ -1,5 +1,5 @@
-import { enabledPools } from "../../config/registry";
 import { truncateAddress } from "../../lib/format/addresses";
+import { useDexRegistry } from "../../queries/useDexRegistry";
 import { useWallet } from "../../wallet/WalletContext";
 import { EmptyState } from "../common";
 import { WalletAddressActions } from "../wallet/WalletAddressActions";
@@ -7,6 +7,7 @@ import { LpPositionPanel } from "./LpPositionPanel";
 
 export function LiquidityPage() {
   const { wallet } = useWallet();
+  const { pools, discovery } = useDexRegistry();
   const walletAddress = wallet.status === "connected" ? wallet.address : undefined;
   const walletCopy = wallet.status === "connected" && wallet.address
     ? `Connected wallet: ${wallet.name ?? truncateAddress(wallet.address)}. LP balances, shares, and underlying estimates refresh every 30 seconds and after successful add/remove transactions.`
@@ -16,11 +17,12 @@ export function LiquidityPage() {
     <section className="panel-page">
       <p className="eyebrow">Portfolio</p>
       <h2>Wallet LP overview</h2>
-      <p>V1 does not assume an indexer, so this page checks the strict registry pools, each verified LP denom, and live pair reserves to estimate your position.</p>
+      <p>V1 does not assume an indexer, so this page checks factory-discovered pools, curated registry metadata, verified LP denoms, and live pair reserves to estimate your position.</p>
+      {discovery.isError ? <p className="error-text">Factory discovery failed; showing curated registry fallback only.</p> : null}
       {walletAddress ? <div className="contract-strip"><span>Wallet</span><WalletAddressActions address={walletAddress} /></div> : null}
       <EmptyState title={walletAddress ? "LP position estimates" : "LP positions unavailable"}>{walletCopy}</EmptyState>
       <div className="lp-position-list">
-        {enabledPools.map((pool) => <LpPositionPanel pool={pool} key={pool.id} />)}
+        {pools.map((pool) => <LpPositionPanel pool={pool} key={pool.id} />)}
       </div>
     </section>
   );

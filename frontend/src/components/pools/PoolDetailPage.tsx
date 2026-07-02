@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
-import { enabledPools } from "../../config/registry";
 import { formatAmount } from "../../lib/format/amounts";
+import { useDexRegistry } from "../../queries/useDexRegistry";
 import { usePoolReserves } from "../../queries/usePools";
 import { ExplorerLink } from "../common/ExplorerLink";
 import { AddLiquidityForm } from "../liquidity/AddLiquidityForm";
@@ -9,11 +9,12 @@ import { RemoveLiquidityForm } from "../liquidity/RemoveLiquidityForm";
 
 export function PoolDetailPage() {
   const { pairAddress } = useParams();
-  const pool = enabledPools.find((candidate) => candidate.pair === pairAddress);
+  const { pools, discovery } = useDexRegistry();
+  const pool = pools.find((candidate) => candidate.pair === pairAddress);
   const reserves = usePoolReserves(pool);
 
   if (!pool) {
-    return <section className="panel-page"><h2>Pool not found</h2><p className="empty-state">This pair is not enabled in the strict Juno registry.</p><Link to="/pools">Back to pools</Link></section>;
+    return <section className="panel-page"><h2>Pool not found</h2><p className="empty-state">This pair was not found in factory discovery or the curated Juno registry.{discovery.isError ? " Factory discovery is currently degraded." : ""}</p><Link to="/pools">Back to pools</Link></section>;
   }
 
   return (
