@@ -49,7 +49,7 @@
     "astroport-factory": {
       "coin_registry_address": "juno1replacecoinregistry00000000000000000000000",
       "fee_address": "juno1replacetreasury0000000000000000000000000000",
-      "generator_address": "juno1replaceincentives00000000000000000000000000",
+      "generator_address": null,
       "owner": "juno1replaceowner000000000000000000000000000000000",
       "pair_configs": [
         {
@@ -60,7 +60,7 @@
           "pair_type": {
             "xyk": {}
           },
-          "permissioned": false,
+          "permissioned": true,
           "total_fee_bps": 30,
           "whitelist": null
         }
@@ -76,7 +76,7 @@
       "astroport_factory": "juno1replacefactory000000000000000000000000000000"
     },
     "astroport-incentives": {
-      "astro_token": {
+      "reward_token": {
         "native_token": {
           "denom": "ujunox"
         }
@@ -84,8 +84,7 @@
       "factory": "juno1replacefactory000000000000000000000000000000",
       "guardian": "juno1replaceguardian000000000000000000000000000000",
       "incentivization_fee_info": null,
-      "owner": "juno1replaceowner000000000000000000000000000000000",
-      "vesting_contract": "juno1replacetreasury0000000000000000000000000000"
+      "owner": "juno1replaceowner000000000000000000000000000000000"
     },
     "astroport-oracle": {
       "asset_infos": [
@@ -96,6 +95,26 @@
         }
       ],
       "factory_contract": "juno1replacefactory000000000000000000000000000000"
+    }
+  },
+  "post_update_state": {
+    "astroport-factory": {
+      "generator_address": "juno1replaceincentives00000000000000000000000000",
+      "pair_configs": [
+        {
+          "code_id": 0,
+          "is_disabled": false,
+          "is_generator_disabled": false,
+          "maker_fee_bps": 0,
+          "pair_type": {
+            "xyk": {}
+          },
+          "permissioned": false,
+          "total_fee_bps": 30,
+          "whitelist": null
+        }
+      ],
+      "first_pool_launch_gate": "Keep factory XYK pair creation permissioned until the official pair exists, seed liquidity is confirmed non-zero, and smoke checks pass. Only then execute update_pair_config to set permissioned=false."
     }
   },
   "pair_create_msg_template": {

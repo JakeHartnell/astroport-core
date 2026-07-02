@@ -54,6 +54,20 @@ MANUAL_SET_PATHS = {
     "pair_create_msg_template.asset_infos.1.native_token.denom",
 }
 
+NETWORKS = {
+    "uni-7": {
+        "network.chain_id": "uni-7",
+        "network.fee_denom": "ujunox",
+        "network.native_asset_denom": "ujunox",
+    },
+    "juno-1": {
+        "network.chain_id": "juno-1",
+        "network.fee_denom": "ujuno",
+        "network.native_asset_denom": "ujuno",
+    },
+}
+NETWORK_SET_PATHS = set(next(iter(NETWORKS.values())))
+
 
 def fail(message: str) -> NoReturn:
     print(f"FAIL: {message}", file=sys.stderr)
@@ -132,6 +146,11 @@ def render(assignments: dict[str, str], output: pathlib.Path) -> None:
     print(check_proc.stdout, end="")
 
 
+def reject_unsafe_mainnet_output(network: str, output: pathlib.Path) -> None:
+    if "mainnet" in output.name and network != "juno-1":
+        fail("mainnet deployment output requires --network juno-1")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tx-sets", type=pathlib.Path, required=True, help="file containing extractor `--set ...` lines")
@@ -141,6 +160,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tokenfactory-module", required=True)
     parser.add_argument("--counterparty-denom", required=True, help="ibc/... denom for the sample JUNO/counterparty XYK pair-create template")
     parser.add_argument("--output", type=pathlib.Path, default=pathlib.Path("deployment/juno-v1-testnet.filled.json"))
+    parser.add_argument("--network", choices=sorted(NETWORKS), default="uni-7", help="deployment network values to render into the config")
     parser.add_argument("--render", action="store_true", help="execute the fill command and validate the rendered config")
     return parser.parse_args()
 
@@ -148,6 +168,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     assignments: dict[str, str] = {}
+    reject_unsafe_mainnet_output(args.network, args.output)
 
     for assignment in parse_extractor_sets(args.tx_sets):
         add_assignment(assignments, assignment, str(args.tx_sets))
@@ -161,17 +182,19 @@ def main() -> None:
     }
     for path, value in manual.items():
         add_assignment(assignments, f"{path}={value}", "manual arg")
+    for path, value in NETWORKS[args.network].items():
+        add_assignment(assignments, f"{path}={value}", f"network {args.network}")
 
     missing_tx = sorted(REQUIRED_TX_SET_PATHS - assignments.keys())
     if missing_tx:
         fail("tx sets missing required deployment values: " + ", ".join(missing_tx))
-    extra_tx = sorted(path for path in assignments if path not in REQUIRED_TX_SET_PATHS | MANUAL_SET_PATHS)
+    extra_tx = sorted(path for path in assignments if path not in REQUIRED_TX_SET_PATHS | MANUAL_SET_PATHS | NETWORK_SET_PATHS)
     if extra_tx:
         fail("unexpected deployment set paths: " + ", ".join(extra_tx))
 
     command = shell_command(assignments, args.output)
     print(command)
-    print(f"sets={len(assignments)} tx_sets={len(REQUIRED_TX_SET_PATHS)} manual_sets={len(MANUAL_SET_PATHS)} render={args.render}")
+    print(f"sets={len(assignments)} tx_sets={len(REQUIRED_TX_SET_PATHS)} manual_sets={len(MANUAL_SET_PATHS)} network={args.network} render={args.render}")
 
     if args.render:
         render(assignments, args.output)
