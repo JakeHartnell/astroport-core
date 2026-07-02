@@ -7,10 +7,11 @@ import { PoolTable } from "./PoolTable";
 const mocks = vi.hoisted(() => ({
   metrics: undefined as Record<string, { tvlUsd?: number; volume24hUsd?: number; totalApr?: number; incentivesApr?: number; incentivized?: boolean }> | undefined,
   access: undefined as { source: "indexer" | "mock" | "fallback" | "disabled"; isFallback: boolean; isMock: boolean; isStale: boolean; error?: { code: string; message: string } } | undefined,
+  metricRefetch: vi.fn(),
 }));
 
 vi.mock("../../queries/usePools", () => ({
-  usePoolMetrics: () => ({ data: mocks.metrics, access: mocks.access, isError: false }),
+  usePoolMetrics: () => ({ data: mocks.metrics, access: mocks.access, isError: false, refetch: mocks.metricRefetch }),
   usePoolReserves: () => ({
     isLoading: false,
     isError: false,
@@ -68,6 +69,7 @@ describe("PoolTable", () => {
   beforeEach(() => {
     mocks.metrics = undefined;
     mocks.access = undefined;
+    mocks.metricRefetch.mockReset();
   });
 
   it("renders token logos, names, and IBC trace hints", () => {
@@ -84,6 +86,15 @@ describe("PoolTable", () => {
     expect(screen.getByText(/fall back to pair contract reserve queries without fake USD metrics/i)).toBeTruthy();
     expect(screen.getAllByText(/Metrics unavailable/i).length).toBeGreaterThanOrEqual(3);
     expect(screen.getAllByText(/On-chain fallback/i).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("shows retry affordance when indexer metrics fall back", () => {
+    mocks.access = { source: "fallback", isFallback: true, isMock: false, isStale: false, error: { code: "timeout", message: "indexer timed out" } };
+
+    renderPoolTable();
+    expect(screen.getByText("Indexer metrics unavailable")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: /retry/i })[0]);
+    expect(mocks.metricRefetch).toHaveBeenCalledTimes(1);
   });
 
   it("filters rows by search and verification controls", () => {

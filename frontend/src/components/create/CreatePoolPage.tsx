@@ -12,7 +12,7 @@ import { buildCreatePoolAssets, createPoolOptions, makeCustomAsset, poolMatchesA
 import { useCreatePoolTx } from "../../mutations/useCreatePoolTx";
 import { useDexRegistry } from "../../queries/useDexRegistry";
 import { useNetworkGuard, useWallet } from "../../wallet/WalletContext";
-import { RiskAcknowledgement, RiskBadgeList, TokenLogo } from "../common";
+import { EmptyState, ErrorState, RiskAcknowledgement, RiskBadgeList, Skeleton, TokenLogo } from "../common";
 import { TxStatusDialog } from "../tx/TxStatusDialog";
 import { TokenSelect } from "../swap/TokenSelect";
 
@@ -82,10 +82,10 @@ export function CreatePoolPage() {
         return await queryFactoryPair([toAssetInfo(selectedAssets[0]), toAssetInfo(selectedAssets[1])]);
       } catch (error) {
         if (error instanceof Error && /404|not found|No pair|Pair was not found/i.test(error.message)) return null;
-        return null;
+        throw error;
       }
     },
-    retry: false,
+    retry: 1,
     staleTime: 30_000,
   });
   const validation = validateCreatePool({ assets: [assetA, assetB], option: selectedOption, existingPair: localDuplicate ?? duplicateQuery.data, riskAcknowledged });
@@ -94,7 +94,7 @@ export function CreatePoolPage() {
     ? (wallet.getSigningCosmWasmClient as SigningClientGetter | undefined) ?? (wallet.signer as OfflineSigner | undefined)
     : undefined;
   const createPoolTx = useCreatePoolTx(signerOrClient, walletAddress);
-  const submitDisabled = wallet.status !== "connected" || !network.isJunoReady || network.isWrongNetwork || !validation.isValid || createPoolTx.isPending;
+  const submitDisabled = wallet.status !== "connected" || !network.isJunoReady || network.isWrongNetwork || configQuery.isError || duplicateQuery.isError || !validation.isValid || createPoolTx.isPending;
   const actionCopy = network.isWrongNetwork
     ? "Switch to Juno to create pool"
     : wallet.status !== "connected"
@@ -152,6 +152,9 @@ export function CreatePoolPage() {
 
         <Box>
           <Text as="p" className="eyebrow">2 · Pool type</Text>
+          {configQuery.isLoading ? <div className="lp-position-skeleton" aria-label="Loading factory config"><Skeleton width="16rem" /><Skeleton width="24rem" /></div> : null}
+          {configQuery.isError ? <ErrorState title="Factory config unavailable" error="Pool type availability cannot be verified, so pool creation stays disabled until the factory config query succeeds." onRetry={() => void configQuery.refetch()} /> : null}
+          {!configQuery.isLoading && options.length === 0 ? <EmptyState title="No factory pool types available">The factory returned no enabled create_pair configs. No default pool type is assumed.</EmptyState> : null}
           <div className="create-pool-type-grid" role="radiogroup" aria-label="Pool type">
             {options.map((option) => (
               <label className={`metric-card create-pool-type${option.id === poolType ? " active" : ""}${option.disabled ? " disabled" : ""}`} key={option.id}>
@@ -166,6 +169,7 @@ export function CreatePoolPage() {
 
         {localDuplicate ? <div className="empty-state"><strong>Existing pool detected.</strong> <a href={`/pools/${localDuplicate.pair}`}>Open {localDuplicate.label}</a> instead of creating a duplicate.</div> : null}
         {duplicateQuery.isFetching ? <p>Checking factory for an existing pair…</p> : null}
+        {duplicateQuery.isError ? <ErrorState title="Duplicate pool check unavailable" error="Creation is blocked until the factory duplicate check can confirm this pair does not already exist." onRetry={() => void duplicateQuery.refetch()} /> : null}
         <div className="empty-state compact"><strong>Guardrails</strong><ul>{validation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>
         <RiskAcknowledgement assessment={validation.risk} checked={riskAcknowledged} onChange={setRiskAcknowledged} action="pool creation" />
         {network.isWrongNetwork ? <Text as="p" className="error-text">Transactions are blocked while your wallet is off Juno mainnet.</Text> : null}
