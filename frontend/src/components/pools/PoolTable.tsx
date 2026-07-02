@@ -24,7 +24,8 @@ function PoolRow({ pool }: { pool: RegistryPool }) {
       <div className="pool-main">
         <div className="pool-title-line">
           <strong>{pool.label}</strong>
-          <span className="status-pill status-ok">verified</span>
+          <span className={`status-pill ${pool.verified === false ? "status-warn" : "status-ok"}`}>{pool.verified === false ? "unverified" : "verified"}</span>
+          {pool.source === "factory" ? <span className="status-pill status-warn">factory discovered</span> : null}
           <span className="status-pill status-warn">thin liquidity</span>
         </div>
         <p>{pool.notes}</p>

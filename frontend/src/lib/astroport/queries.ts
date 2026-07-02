@@ -1,4 +1,5 @@
 import type { RegistryAsset, RegistryPool } from "../../config/registry";
+import type { PairsResponse, QueryMsg as FactoryQueryMsg } from "../generated/Factory.types";
 import type { PoolResponse, QueryMsg as PairQueryMsg, SimulationResponse } from "../generated/Pair.types";
 import { dexRegistry } from "../../config/registry";
 import { toAsset } from "./assetInfo";
@@ -14,7 +15,7 @@ function encodeSmartQuery(message: unknown): string {
   return btoa(binary);
 }
 
-async function queryContractSmart<T>(contractAddress: string, message: unknown): Promise<T> {
+export async function queryContractSmart<T>(contractAddress: string, message: unknown): Promise<T> {
   const encoded = encodeURIComponent(encodeSmartQuery(message));
   const response = await fetch(`${dexRegistry.restEndpoint}/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${encoded}`);
   if (!response.ok) throw new Error(`REST smart query failed: ${response.status}`);
@@ -24,6 +25,10 @@ async function queryContractSmart<T>(contractAddress: string, message: unknown):
 
 export async function queryPairPool(pairAddress: string): Promise<PoolResponse> {
   return queryContractSmart(pairAddress, { pool: {} } satisfies PairQueryMsg);
+}
+
+export async function queryFactoryPairs(message: Extract<FactoryQueryMsg, { pairs: unknown }>): Promise<PairsResponse> {
+  return queryContractSmart(dexRegistry.factory, message);
 }
 
 export async function querySwapSimulation(

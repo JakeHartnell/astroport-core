@@ -20,4 +20,19 @@ describe("dex registry", () => {
   it("rejects non-juno chain registries", () => {
     expect(() => parseDexRegistry({ ...dexRegistry, chainId: "uni-7" })).toThrow(/juno-1/);
   });
+
+  it("accepts curated stable and concentrated pools without allowing unknown pool types", () => {
+    const stableRegistry = {
+      ...dexRegistry,
+      pools: [{ ...dexRegistry.pools[0], id: "stable-pool", type: "stable" }],
+    };
+    const concentratedRegistry = {
+      ...dexRegistry,
+      pools: [{ ...dexRegistry.pools[0], id: "concentrated-pool", type: "concentrated" }],
+    };
+
+    expect(parseDexRegistry(stableRegistry).pools[0].type).toBe("stable");
+    expect(parseDexRegistry(concentratedRegistry).pools[0].type).toBe("concentrated");
+    expect(() => parseDexRegistry({ ...dexRegistry, pools: [{ ...dexRegistry.pools[0], type: "placeholder" }] })).toThrow(/xyk, stable, or concentrated/);
+  });
 });
