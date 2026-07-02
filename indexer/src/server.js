@@ -1,7 +1,8 @@
 import http from "node:http";
 import { URL } from "node:url";
-import { createDevMockStore, createEmptyStore } from "./store.js";
+import { createDevMockStore, createEmptyStore, InMemoryMetricsStore } from "./store.js";
 import { openApiDocument } from "./openapi.js";
+import { createPriceResolverFromEnv, normalizeAssetId } from "./pricing.js";
 
 const DEFAULT_PORT = 8787;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -33,6 +34,16 @@ function parseQuery(searchParams) {
   };
 }
 
+function parseAssets(searchParams, pathAsset) {
+  const values = [];
+  if (pathAsset) values.push(pathAsset);
+  for (const key of ["asset", "assets", "denom", "denoms"]) {
+    const value = searchParams.get(key);
+    if (value) values.push(...value.split(","));
+  }
+  return Array.from(new Set(values.map(normalizeAssetId).filter(Boolean)));
+}
+
 function createRateLimiter({ limit = DEFAULT_RATE_LIMIT, windowMs = RATE_LIMIT_WINDOW_MS } = {}) {
   const buckets = new Map();
   return (key) => {
@@ -49,7 +60,7 @@ function createRateLimiter({ limit = DEFAULT_RATE_LIMIT, windowMs = RATE_LIMIT_W
 
 export function createIndexerApi({ store = createEmptyStore(), rateLimit = DEFAULT_RATE_LIMIT } = {}) {
   const checkRateLimit = createRateLimiter({ limit: rateLimit });
-  return http.createServer((req, res) => {
+  return http.createServer(async (req, res) => {
     if (req.method === "OPTIONS") return jsonResponse(res, 204, {});
     if (req.method !== "GET") return jsonResponse(res, 405, { error: "method_not_allowed" });
 
@@ -73,6 +84,12 @@ export function createIndexerApi({ store = createEmptyStore(), rateLimit = DEFAU
       }
       if (url.pathname === "/openapi.json") return jsonResponse(res, 200, openApiDocument);
       if (url.pathname === "/stats") return jsonResponse(res, 200, store.getProtocolStats());
+      if (pathParts[0] === "prices" && pathParts.length <= 2) {
+        const assets = parseAssets(url.searchParams, pathParts[1]);
+        if (assets.length === 0) return jsonResponse(res, 400, { error: "asset_required" });
+        const prices = await store.resolvePrices(assets);
+        return jsonResponse(res, 200, pathParts[1] ? prices[0] : { data: prices });
+      }
       if (pathParts[0] === "pools" && pathParts.length === 1) return jsonResponse(res, 200, store.listPools(query));
       if (pathParts[0] === "pools" && pathParts[2] === "candles") {
         const candles = store.listPoolCandles(pathParts[1], query);
@@ -94,7 +111,8 @@ export function createIndexerApi({ store = createEmptyStore(), rateLimit = DEFAU
 }
 
 export function storeFromEnv(env = process.env) {
-  return env.INDEXER_DEV_MOCKS === "true" ? createDevMockStore() : createEmptyStore();
+  if (env.INDEXER_DEV_MOCKS === "true") return createDevMockStore();
+  return new InMemoryMetricsStore({ priceResolver: createPriceResolverFromEnv(env) });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

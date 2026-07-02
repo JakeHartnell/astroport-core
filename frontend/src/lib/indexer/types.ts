@@ -9,6 +9,22 @@ export type IndexerAssetAmount = {
   reserve?: string;
   amount?: string;
   valueUsd?: number | null;
+  priceUsd?: number | null;
+  priceStatus?: "fresh" | "stale" | "missing" | string | null;
+  priceSource?: string | null;
+  priceUpdatedAt?: string | null;
+  isPriceMock?: boolean;
+};
+
+export type IndexerPrice = {
+  asset: string | null;
+  priceUsd: number | null;
+  source: string | null;
+  status: "fresh" | "stale" | "missing" | string;
+  stale: boolean;
+  observedAt: string | null;
+  ageMs: number | null;
+  isMock: boolean;
 };
 
 export type IndexerPoolMetrics = {

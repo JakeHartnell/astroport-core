@@ -1,5 +1,6 @@
 import { normalizePoolRecord, normalizePositionRecord, normalizeTxRecord } from "./calculations.js";
 import { filterCandles, normalizeCandleRecord, parseCandleLimit, validateCandleInterval } from "./candles.js";
+import { MockPriceSource, PriceResolver, StoredTokenPriceSource } from "./pricing.js";
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
@@ -13,8 +14,19 @@ export function paginate(items, { limit = DEFAULT_PAGE_LIMIT, cursor, maxLimit =
 }
 
 export class InMemoryMetricsStore {
-  constructor({ pools = [], positions = [], transactions = [], candles = [] } = {}) {
-    this.pools = pools.map(normalizePoolRecord);
+  constructor({ pools = [], positions = [], transactions = [], candles = [], tokenPrices = [], priceResolver } = {}) {
+    const sources = tokenPrices.length > 0 ? [new StoredTokenPriceSource({ prices: tokenPrices })] : [];
+    this.priceResolver = priceResolver ?? new PriceResolver({ sources });
+    const resolvedPrices = tokenPrices.map((price) => ({
+      asset: price.asset ?? price.denom,
+      priceUsd: Number(price.priceUsd ?? price.price_usd),
+      source: price.source ?? "stored",
+      status: "fresh",
+      stale: false,
+      observedAt: new Date(price.observedAt ?? price.observed_at ?? new Date()).toISOString(),
+      isMock: Boolean(price.isMock ?? price.is_mock ?? price.source === "mock"),
+    }));
+    this.pools = pools.map((pool) => normalizePoolRecord(pool, { prices: resolvedPrices }));
     this.positions = positions.map(normalizePositionRecord);
     this.transactions = transactions.map(normalizeTxRecord);
     this.candles = candles.map(normalizeCandleRecord);
@@ -90,6 +102,14 @@ export class InMemoryMetricsStore {
       .sort((a, b) => b.height - a.height);
     return paginate(rows, query);
   }
+
+  async resolvePrices(assets) {
+    return this.priceResolver.resolveMany(assets);
+  }
+
+  async resolvePrice(asset) {
+    return this.priceResolver.resolve(asset);
+  }
 }
 
 export function createEmptyStore() {
@@ -100,7 +120,13 @@ export function createDevMockStore(now = new Date("2026-07-02T00:00:00.000Z")) {
   const updatedAt = now.toISOString();
   const pairAddress = "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv";
   const walletAddress = "juno1mockwalletxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+  const tokenPrices = [
+    { asset: "ujuno", priceUsd: 1.25, source: "mock", observedAt: updatedAt, isMock: true },
+    { asset: "ibc/mock-usdc", priceUsd: 1, source: "mock", observedAt: updatedAt, isMock: true },
+  ];
   return new InMemoryMetricsStore({
+    tokenPrices,
+    priceResolver: new PriceResolver({ sources: [new MockPriceSource({ now })], now: () => now }),
     pools: [{
       id: pairAddress,
       pairAddress,

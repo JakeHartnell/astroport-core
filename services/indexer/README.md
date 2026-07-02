@@ -42,6 +42,13 @@ Copy `.env.example` to `.env` or export variables:
 | `POLL_INTERVAL_MS` | `5000` | Poll cadence. |
 | `BATCH_SIZE` | `20` | Max blocks per polling loop. |
 | `DRY_RUN` | `false` | If true, normalizes and logs without DB writes. |
+| `PRICE_PROVIDER_BASE_URL` | unset | Optional HTTP JSON USD price provider used by the API resolver; queried with `?asset=<normalized asset>`. |
+| `PRICE_PROVIDER_API_KEY` | unset | Optional provider key; never commit real keys. |
+| `PRICE_PROVIDER_NAME` | `provider` | Source label returned with resolver results. |
+| `PRICE_CACHE_TTL_MS` | `300000` | In-process price cache TTL. |
+| `PRICE_STALE_AFTER_MS` | `1800000` | Age threshold before prices are flagged stale. |
+| `PRICE_ALLOW_STALE` | `true` | Set `false` to suppress stale prices as missing instead of returning stale values. |
+| `PRICE_DEV_MOCKS` | `false` | Opt-in local mock price source only; mock outputs are marked `isMock`. |
 
 ## Local development
 
