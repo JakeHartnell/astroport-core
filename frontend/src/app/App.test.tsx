@@ -2,8 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
 import { ToastProvider } from "../components/common";
+import { App } from "./App";
 
 const walletState = vi.hoisted(() => ({
   wallet: { status: "idle" } as {

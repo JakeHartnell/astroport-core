@@ -3,11 +3,18 @@ import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import type { OfflineSigner } from "@cosmjs/proto-signing";
 import type { Coin } from "@cosmjs/stargate";
 import type { RegistryPool } from "../config/registry";
+import type { Asset } from "../lib/generated/Pair.types";
 import { createWithdrawLiquidityMessage } from "../lib/astroport/messages";
 import { getSigningClient } from "../lib/cosmjs/clients";
 import { invalidateDexTxQueries, useTxRunner } from "../tx/useTxRunner";
 
 type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
+
+type WithdrawLiquidityVariables = {
+  pool: RegistryPool;
+  lpAmount: string;
+  minAssetsToReceive?: Asset[];
+};
 
 async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClientGetter | undefined) {
   if (!signerOrClient) return undefined;
@@ -19,16 +26,16 @@ export function useWithdrawLiquidityTx(signerOrClient: OfflineSigner | SigningCl
   const queryClient = useQueryClient();
   const txRunner = useTxRunner();
   const mutation = useMutation({
-    mutationFn: async (variables: { pool: RegistryPool; lpAmount: string }) => {
+    mutationFn: async (variables: WithdrawLiquidityVariables) => {
       return txRunner.runTx({
         title: "Remove liquidity",
         pendingMessage: `Withdrawing liquidity from ${variables.pool.label}…`,
         variables,
-        broadcast: async ({ pool, lpAmount }) => {
+        broadcast: async ({ pool, lpAmount, minAssetsToReceive }) => {
           const client = await resolveSigningClient(signerOrClient);
           if (!client || !sender) throw new Error("Connect a wallet before broadcasting");
           const funds: Coin[] = [{ denom: pool.lpToken, amount: lpAmount }];
-          return client.execute(sender, pool.pair, createWithdrawLiquidityMessage(), "auto", undefined, funds);
+          return client.execute(sender, pool.pair, createWithdrawLiquidityMessage(minAssetsToReceive), "auto", undefined, funds);
         },
         successMessage: (_result, { pool, lpAmount }) => `Withdrawal transaction submitted for ${pool.label}: ${lpAmount} LP tokens.`,
         onSuccess: (_result, { pool }) => invalidateDexTxQueries(queryClient, sender, pool),
