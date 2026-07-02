@@ -4,10 +4,12 @@ import type { SwapRoute } from "../lib/astroport/routes";
 
 function quote(returnAmount: string, hops: number): RouteQuote {
   return {
+    offer_amount: "50",
     return_amount: returnAmount,
     spread_amount: "0",
     commission_amount: "0",
     source: hops === 1 ? "pair" : "router",
+    mode: "exact-in",
     route: { id: `${returnAmount}-${hops}`, hops: Array.from({ length: hops }) as SwapRoute["hops"], operations: [] },
   };
 }
@@ -19,5 +21,11 @@ describe("selectBestRouteQuote", () => {
 
   it("uses the shorter route as a tie-breaker", () => {
     expect(selectBestRouteQuote([quote("100", 3), quote("100", 1)])?.route.hops).toHaveLength(1);
+  });
+
+  it("selects the lowest required input for exact-out quotes", () => {
+    const expensive = { ...quote("100", 1), offer_amount: "80", mode: "exact-out" as const };
+    const cheap = { ...quote("100", 2), offer_amount: "60", mode: "exact-out" as const };
+    expect(selectBestRouteQuote([expensive, cheap], "exact-out")?.offer_amount).toBe("60");
   });
 });

@@ -3,6 +3,7 @@ import type { OfflineSigner } from "@cosmjs/proto-signing";
 import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { Box, Button, Stack, Text } from "@interchain-ui/react";
 import { dexRegistry, type RegistryAsset, type RegistryPool } from "../../config/registry";
+import type { SwapQuoteMode } from "../../lib/astroport/queries";
 import { formatAmount, isBaseAmountGreaterThan, parseTokenAmount } from "../../lib/format/amounts";
 import { calculateMinimumReceived, formatBpsPercent, getPriceImpact, slippageBpsToMaxSpread } from "../../lib/swap/slippage";
 import { useSwapTx } from "../../mutations/useSwapTx";
@@ -51,48 +52,61 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
   const [offerId, setOfferId] = useState(pool.assets[0].id);
   const [askId, setAskId] = useState(pool.assets[1].id);
   const [amount, setAmount] = useState("1");
+  const [askAmount, setAskAmount] = useState("");
+  const [quoteMode, setQuoteMode] = useState<SwapQuoteMode>("exact-in");
   const [highImpactConfirmed, setHighImpactConfirmed] = useState(false);
   const { slippageBps, formattedSlippagePercent, maxSpread } = useSlippageSettings();
   const offerAsset = selectableAssets.find((asset) => asset.id === offerId) ?? pool.assets[0];
   const askAsset = selectableAssets.find((asset) => asset.id === askId && asset.id !== offerAsset.id) ?? selectableAssets.find((asset) => asset.id !== offerAsset.id) ?? pool.assets[1];
-  const parsedAmount = parseTokenAmount(amount, offerAsset.decimals);
-  const baseAmount = parsedAmount.baseAmount;
+  const parsedOfferInput = parseTokenAmount(amount, offerAsset.decimals);
+  const parsedAskInput = parseTokenAmount(askAmount, askAsset.decimals);
+  const quoteInputBaseAmount = quoteMode === "exact-out" ? parsedAskInput.baseAmount : parsedOfferInput.baseAmount;
+  const activeParsedAmount = quoteMode === "exact-out" ? parsedAskInput : parsedOfferInput;
   const walletAddress = wallet.status === "connected" ? wallet.address : undefined;
   const balances = useWalletBalances(walletAddress, allPools);
   const offerBalance = getWalletBalanceAmount(balances.data, offerAsset.id);
-  const quote = useSwapQuote(allPools, offerAsset, askAsset, baseAmount);
+  const quote = useSwapQuote(allPools, offerAsset, askAsset, quoteInputBaseAmount, quoteMode);
   const signerOrClient = wallet.status === "connected"
     ? (wallet.getSigningCosmWasmClient as SigningClientGetter | undefined) ?? (wallet.signer as OfflineSigner | undefined)
     : undefined;
   const swapTx = useSwapTx(signerOrClient, walletAddress);
-  const hasAmount = parsedAmount.isValid && isPositiveBaseAmount(baseAmount);
+  const requiredOfferBaseAmount = quoteMode === "exact-out" && quote.data ? quote.data.offer_amount : parsedOfferInput.baseAmount;
+  const hasAmount = activeParsedAmount.isValid && isPositiveBaseAmount(quoteInputBaseAmount);
   const sameToken = offerAsset.id === askAsset.id;
-  const exceedsBalance = Boolean(offerBalance && parsedAmount.isValid && isBaseAmountGreaterThan(baseAmount, offerBalance));
-  const quoteReady = quote.isSuccess && Boolean(quote.data) && !quote.isFetching && !quote.isError;
-  const receiveAmount = quote.data ? `${formatAmount(quote.data.return_amount, askAsset.decimals)} ${askAsset.symbol}` : "—";
+  const exceedsBalance = Boolean(offerBalance && isPositiveBaseAmount(requiredOfferBaseAmount) && isBaseAmountGreaterThan(requiredOfferBaseAmount, offerBalance));
+  const quoteReady = quote.isSuccess && Boolean(quote.data) && !quote.isFetching && !quote.isError && !quote.isDebouncing && !quote.isExpired;
+  const receiveAmount = quote.data
+    ? `${formatAmount(quote.data.return_amount, askAsset.decimals)} ${askAsset.symbol}`
+    : quoteMode === "exact-out" && parsedAskInput.isValid && isPositiveBaseAmount(parsedAskInput.baseAmount)
+      ? `${askAmount} ${askAsset.symbol}`
+      : "—";
   const priceImpact = quote.data && quote.data.source === "pair" ? getPriceImpact({ spreadAmount: quote.data.spread_amount, returnAmount: quote.data.return_amount }) : null;
   const requiresHighImpactConfirm = priceImpact?.severity === "high";
   const selectedRoute = quote.data?.route;
   const minimumReceive = quote.data ? calculateMinimumReceived(quote.data.return_amount, slippageBps) : "0";
-  useEffect(() => setHighImpactConfirmed(false), [baseAmount, offerAsset.id, askAsset.id, quote.data?.return_amount, quote.data?.spread_amount]);
+  useEffect(() => setHighImpactConfirmed(false), [quoteInputBaseAmount, quoteMode, offerAsset.id, askAsset.id, quote.data?.return_amount, quote.data?.spread_amount]);
 
-  const validationError = !parsedAmount.isValid
-    ? parsedAmount.error
+  const validationError = !activeParsedAmount.isValid
+    ? activeParsedAmount.error
     : sameToken
       ? "Choose two different tokens"
       : !hasAmount
         ? "Enter amount"
-        : exceedsBalance
-          ? `Insufficient ${offerAsset.symbol} balance`
-          : quote.isError
-            ? "Route preview unavailable"
-            : quote.isFetching || (hasAmount && !quoteReady)
-              ? "Refreshing route…"
-              : !selectedRoute
-                ? "No route found"
-                : requiresHighImpactConfirm && !highImpactConfirmed
-                  ? "Confirm high price impact"
-                  : undefined;
+        : quote.isDebouncing
+          ? "Updating quote…"
+          : exceedsBalance
+            ? `Insufficient ${offerAsset.symbol} balance`
+            : quote.isError
+              ? "Route preview unavailable"
+              : quote.isExpired
+                ? "Quote expired — refresh"
+                : quote.isFetching || (hasAmount && !quoteReady)
+                  ? "Refreshing route…"
+                  : !selectedRoute
+                    ? "No route found"
+                    : requiresHighImpactConfirm && !highImpactConfirmed
+                      ? "Confirm high price impact"
+                      : undefined;
   const submitDisabled = wallet.status !== "connected"
     || !network.isJunoReady
     || network.isWrongNetwork
@@ -106,11 +120,31 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
         ? "Connect wallet to swap"
         : swapTx.isPending
           ? "Swapping…"
-          : validationError ?? "Swap";
+          : validationError ?? (quoteMode === "exact-out" ? "Swap exact output" : "Swap");
+
+  const updateOfferAmount = (nextAmount: string) => {
+    setAmount(nextAmount);
+    setQuoteMode("exact-in");
+  };
+
+  const updateAskAmount = (nextAmount: string) => {
+    setAskAmount(nextAmount);
+    setQuoteMode("exact-out");
+  };
 
   const handleOfferChange = (next: string) => {
     setOfferId(next);
     if (next === askId) setAskId(selectableAssets.find((asset) => asset.id !== next)?.id ?? askId);
+    setQuoteMode("exact-in");
+  };
+
+  const handleFlip = () => {
+    const nextOfferAmount = quote.data?.return_amount ? formatAmount(quote.data.return_amount, askAsset.decimals) : askAmount;
+    setOfferId(askAsset.id);
+    setAskId(offerAsset.id);
+    setAmount(nextOfferAmount || "");
+    setAskAmount("");
+    setQuoteMode("exact-in");
   };
 
   const handleSwap = () => {
@@ -120,7 +154,7 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
       route: selectedRoute,
       offerAsset,
       askAsset,
-      amount: baseAmount,
+      amount: requiredOfferBaseAmount,
       maxSpread: maxSpread || slippageBpsToMaxSpread(slippageBps),
       minimumReceive,
       source: quote.data.source,
@@ -141,29 +175,36 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
         <span className={`mode-tab ${quote.data?.source === "router" ? "active" : dexRegistry.router ? "" : "disabled"}`} title={dexRegistry.router ? "Router is used when it returns the best route" : "Router contract is not configured"}>Router</span>
       </Box>
       <Stack className="asset-amount-card" direction="vertical" space="4">
-        <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>From</span><strong>{offerAsset.symbol}</strong></Stack>
+        <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>From {quoteMode === "exact-out" ? "· required input" : ""}</span><strong>{offerAsset.symbol}</strong></Stack>
         <Stack className="form-grid" direction="horizontal" align="flex-end">
           <TokenAmountInput
-            label="Amount"
-            value={amount}
+            label={quoteMode === "exact-out" ? "Required amount" : "Amount"}
+            value={quoteMode === "exact-out" && quote.data ? formatAmount(quote.data.offer_amount, offerAsset.decimals) : amount}
             decimals={offerAsset.decimals}
             symbol={offerAsset.symbol}
             balanceBaseAmount={offerBalance}
-            onChange={(nextAmount) => setAmount(nextAmount)}
-            fiatHint={<span>USD hint pending oracle wiring</span>}
+            onChange={updateOfferAmount}
+            fiatHint={<span>{quoteMode === "exact-out" && quote.data ? "Calculated from reverse simulation" : "USD hint pending oracle wiring"}</span>}
           />
           <TokenSelect assets={selectableAssets} value={offerId} onChange={handleOfferChange} label="From asset" balances={balances.data} />
         </Stack>
         <code>{offerAsset.id}</code>
       </Stack>
-      <Box className="swap-direction">↓</Box>
+      <Button variant="outlined" intent="secondary" size="sm" className="swap-direction" onClick={handleFlip} domAttributes={{ type: "button", title: "Flip swap direction" }}>↓</Button>
       <Stack className="asset-amount-card receive-card" direction="vertical" space="4">
-        <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>To · estimated receive</span><strong>{askAsset.symbol}</strong></Stack>
-        <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== offerAsset.id)} value={askAsset.id} onChange={setAskId} label="To asset" balances={balances.data} />
-        <Text as="div" className="estimated-receive">{receiveAmount}</Text>
+        <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>To {quoteMode === "exact-out" ? "· exact receive" : "· estimated receive"}</span><strong>{askAsset.symbol}</strong></Stack>
+        <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== offerAsset.id)} value={askAsset.id} onChange={(next) => { setAskId(next); setQuoteMode("exact-in"); }} label="To asset" balances={balances.data} />
+        <TokenAmountInput
+          label={quoteMode === "exact-out" ? "Exact receive" : "Estimated receive"}
+          value={quoteMode === "exact-out" ? askAmount : quote.data ? formatAmount(quote.data.return_amount, askAsset.decimals) : ""}
+          decimals={askAsset.decimals}
+          symbol={askAsset.symbol}
+          onChange={updateAskAmount}
+          fiatHint={<span>{receiveAmount}</span>}
+        />
         <code>{askAsset.id}</code>
       </Stack>
-      <QuoteCard quote={quote.data} askAsset={askAsset} isLoading={quote.isFetching} error={quote.error} slippageBps={slippageBps} />
+      <QuoteCard quote={quote.data} askAsset={askAsset} offerAsset={offerAsset} isLoading={quote.isFetching || quote.isDebouncing} error={quote.error} slippageBps={slippageBps} updatedAt={quote.quoteUpdatedAt} expiresInMs={quote.expiresInMs} isExpired={quote.isExpired} onRefresh={() => void quote.refreshQuote()} />
       {quote.data?.source === "router" ? (
         <div className="price-impact-warning" role="status">Multi-hop routes touch multiple pools and may have higher execution risk. The router quote includes per-hop fees, but aggregate price impact is not exposed by this contract query.</div>
       ) : null}
