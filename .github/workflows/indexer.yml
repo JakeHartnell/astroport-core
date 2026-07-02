@@ -1,0 +1,46 @@
+name: Indexer CI
+
+on:
+  pull_request:
+    paths:
+      - "services/indexer/**"
+      - ".github/workflows/indexer.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "services/indexer/**"
+      - ".github/workflows/indexer.yml"
+
+jobs:
+  validate:
+    name: Typecheck, test, build, and containerize
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/indexer
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/indexer/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Build Docker image
+        run: docker build -t astroport-juno-indexer:${{ github.sha }} .

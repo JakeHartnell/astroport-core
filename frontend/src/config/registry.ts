@@ -158,5 +158,19 @@ function withChainRegistryMetadata(registry: DexRegistry): DexRegistry {
   };
 }
 
-export const dexRegistry = withChainRegistryMetadata(parseDexRegistry(registryJson));
+function envString(name: string): string | undefined {
+  const value = import.meta.env[name] as string | undefined;
+  return value?.trim() || undefined;
+}
+
+export function applyDexRegistryEnvOverrides(registry: DexRegistry): DexRegistry {
+  return parseDexRegistry({
+    ...registry,
+    rpcEndpoint: envString("VITE_DEX_RPC_URL") ?? registry.rpcEndpoint,
+    restEndpoint: envString("VITE_DEX_REST_URL") ?? registry.restEndpoint,
+    explorerBaseUrl: envString("VITE_DEX_EXPLORER_URL") ?? registry.explorerBaseUrl,
+  });
+}
+
+export const dexRegistry = withChainRegistryMetadata(applyDexRegistryEnvOverrides(parseDexRegistry(registryJson)));
 export const enabledPools = dexRegistry.pools.filter((pool) => pool.enabled);
