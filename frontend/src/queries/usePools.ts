@@ -22,7 +22,7 @@ export function usePoolMetrics(pools: RegistryPool[]) {
     queryKey: ["pool-metrics", pools.map((pool) => pool.pair).join(",")],
     enabled: pools.length > 0,
     staleTime: 30_000,
-    retry: false,
+    retry: 1,
     queryFn: () => loadPoolMetrics(pools),
   });
 
@@ -38,7 +38,7 @@ export function useStatsDashboard(pools: RegistryPool[]) {
     queryKey: ["stats-dashboard", pools.map((pool) => pool.pair).join(",")],
     enabled: true,
     staleTime: 30_000,
-    retry: false,
+    retry: 1,
     queryFn: () => loadStatsDashboard(pools),
   });
 
@@ -57,7 +57,7 @@ export function usePoolCandles(pool: RegistryPool | undefined, options: { interv
     queryKey: ["pool-candles", pool?.pair, interval, range, limit],
     enabled: Boolean(pool),
     staleTime: 30_000,
-    retry: false,
+    retry: 1,
     queryFn: () => loadPoolCandles(pool, { interval, range, limit }),
   });
 
@@ -73,7 +73,7 @@ export function useWalletIndexerData(address: string | undefined) {
     queryKey: ["wallet-indexer-data", address],
     enabled: Boolean(address),
     staleTime: 30_000,
-    retry: false,
+    retry: 1,
     queryFn: () => loadWalletIndexerData(address),
   });
 

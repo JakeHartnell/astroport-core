@@ -44,7 +44,7 @@ export function PoolTable({ pools }: { pools: RegistryPool[] }) {
       <p className="pool-metrics-copy">
         TVL, 24h volume, and APR prefer the configured indexer and fall back to pair contract reserve queries without fake USD metrics. {dataAccessCopy(metrics.access)}
       </p>
-      {metrics.access?.error ? <p className="error-text">Indexer metrics unavailable ({metrics.access.error.message}); showing reserve fallback without fake TVL, volume, or APR.</p> : null}
+      {metrics.access?.error ? <ErrorState title="Indexer metrics unavailable" error={`Showing reserve fallback without fake TVL, volume, or APR. ${metrics.access.error.message}`} onRetry={() => void metrics.refetch()} /> : null}
       <div className="pool-table" role="table" aria-label="Astroport pools">
         <div className="pool-table-header" role="row">
           <span role="columnheader">Pool</span>

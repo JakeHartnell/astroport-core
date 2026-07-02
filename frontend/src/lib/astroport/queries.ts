@@ -11,6 +11,14 @@ export type { PoolResponse, ReverseSimulationResponse, SimulationResponse } from
 export type SwapQuoteMode = "exact-in" | "exact-out";
 export type { SimulateSwapOperationsResponse } from "../generated/Router.types";
 
+const DEFAULT_REST_TIMEOUT_MS = 8_000;
+
+function restTimeoutMs() {
+  const raw = import.meta.env.VITE_DEX_REST_TIMEOUT_MS as string | undefined;
+  const value = raw ? Number(raw) : DEFAULT_REST_TIMEOUT_MS;
+  return Number.isFinite(value) && value > 0 ? value : DEFAULT_REST_TIMEOUT_MS;
+}
+
 function encodeSmartQuery(message: unknown): string {
   const json = JSON.stringify(message);
   const bytes = new TextEncoder().encode(json);
@@ -21,7 +29,18 @@ function encodeSmartQuery(message: unknown): string {
 
 export async function queryContractSmart<T>(contractAddress: string, message: unknown): Promise<T> {
   const encoded = encodeURIComponent(encodeSmartQuery(message));
-  const response = await fetch(`${dexRegistry.restEndpoint}/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${encoded}`);
+  const timeoutMs = restTimeoutMs();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  let response: Response;
+  try {
+    response = await fetch(`${dexRegistry.restEndpoint}/cosmwasm/wasm/v1/contract/${contractAddress}/smart/${encoded}`, { signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw new Error(`REST smart query timed out after ${timeoutMs}ms`);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   if (!response.ok) throw new Error(`REST smart query failed: ${response.status}`);
   const payload = await response.json() as { data: T };
   return payload.data;

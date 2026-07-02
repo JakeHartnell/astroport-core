@@ -41,6 +41,25 @@ describe("indexer fallback data access", () => {
     expect(result.state.error?.code).toBe("http");
   });
 
+  it("retries transient indexer failures before falling back", async () => {
+    let healthAttempts = 0;
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) {
+        healthAttempts += 1;
+        if (healthAttempts === 1) return json({ status: "down" }, 503);
+        return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
+      }
+      return json({ data: [{ pair: pool.pair, tvlUsd: 99, updatedAt: new Date().toISOString(), dataSource: "indexer", isMock: false }], pagination: { limit: 50, nextCursor: null } });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadPoolMetrics([pool], config({ retry: 1 }));
+
+    expect(result.state.source).toBe("indexer");
+    expect(result.data[pool.pair]?.tvlUsd).toBe(99);
+    expect(healthAttempts).toBe(2);
+  });
+
   it("falls back gracefully on indexer timeout", async () => {
     vi.stubGlobal("fetch", vi.fn((_url: string, init?: RequestInit) => new Promise((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));

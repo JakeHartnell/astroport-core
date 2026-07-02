@@ -127,9 +127,10 @@ export function PortfolioPage() {
       <p className="eyebrow">Portfolio</p>
       <h2>Wallet portfolio</h2>
       <p>Aggregates unstaked LP balances, staked LP positions when the indexer reports them, claimable rewards when available, and honest USD totals that exclude missing prices.</p>
-      {discovery.isError ? <p className="error-text">Factory discovery failed; showing curated registry fallback only.</p> : null}
+      {discovery.isError ? <ErrorState title="Factory discovery unavailable" error="Showing curated registry fallback only; unknown factory pairs are not fabricated." onRetry={() => void discovery.refetch()} /> : null}
       {walletAddress ? <div className="contract-strip"><span>Wallet</span><WalletAddressActions address={walletAddress} /></div> : null}
       <p className="pool-metrics-copy">{dataCopy}</p>
+      {walletAddress && indexerData.access?.error ? <ErrorState title="Indexer portfolio data unavailable" error="Using explicit on-chain fallback where possible; unavailable USD, rewards, and staked rows remain marked unavailable." onRetry={() => void indexerData.refetch()} /> : null}
 
       {!walletAddress ? (
         <EmptyState title="Connect wallet to view portfolio" action={<Link className="wallet-inline-action" to="/pools">Browse pools</Link>}>
