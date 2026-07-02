@@ -16,11 +16,10 @@ import {
 import type { PoolMetrics } from "../../lib/pools/poolList";
 import { getPoolTypeMetadata } from "../../lib/pools/poolTypes";
 import { assessPoolRisk } from "../../lib/risk";
-import { usePoolMetrics, usePoolReserves } from "../../queries/usePools";
+import { usePoolMetrics } from "../../queries/usePools";
 import { getWalletBalanceAmount, useWalletBalances, type WalletBalance } from "../../queries/useWalletBalances";
 import { useWallet } from "../../wallet/WalletContext";
-import { EmptyState, ErrorState, RiskBadgeList, Skeleton, TokenLogo } from "../common";
-import { PriceCandleChart } from "../charts/PriceCandleChart";
+import { EmptyState, ErrorState, RiskBadgeList, TokenLogo } from "../common";
 
 export function PoolTable({ pools }: { pools: RegistryPool[] }) {
   const [controls, setControls] = useState<PoolListControls>(DEFAULT_POOL_LIST_CONTROLS);
@@ -48,7 +47,7 @@ export function PoolTable({ pools }: { pools: RegistryPool[] }) {
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "tvl"))}>TVL</button>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "volume"))}>24h volume</button>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "apr"))}>APR</button>
-          <span role="columnheader">Fee tier</span>
+          <span role="columnheader">Type</span>
           <span role="columnheader">Your position</span>
           <span role="columnheader">Actions</span>
         </div>
@@ -126,44 +125,30 @@ function toggleSort(controls: PoolListControls, sortKey: PoolListSortKey): PoolL
 }
 
 function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metrics?: PoolMetrics; balances?: readonly WalletBalance[]; access?: DataAccessState }) {
-  const reserves = usePoolReserves(pool);
-  const risk = assessPoolRisk(pool, reserves.data);
+  const risk = assessPoolRisk(pool);
   const lpBalance = getWalletBalanceAmount(balances, pool.lpToken);
   const poolType = getPoolTypeMetadata(pool.type);
   return (
     <article className="pool-row" role="row">
       <div className="pool-main" role="cell">
         <div className="pool-title-line">
-          <strong>{pool.label}</strong>
-          <RiskBadgeList assessment={risk} max={4} />
-          <span className={`status-pill ${poolType.badgeClass}`}>{poolType.shortLabel}</span>
+          <span className="pool-token-stack" aria-hidden="true">
+            {pool.assets.slice(0, 2).map((asset) => <TokenLogo key={asset.id} asset={asset} size="sm" />)}
+          </span>
+          <div className="pool-title-copy">
+            <strong>{pool.label}</strong>
+            <small>{poolType.shortLabel} · {pool.feeBps} bps</small>
+          </div>
+          <RiskBadgeList assessment={risk} max={2} />
           {metrics?.incentivized || (metrics?.incentivesApr ?? 0) > 0 ? <span className="status-pill status-ok">incentivized</span> : null}
         </div>
-        <p>{pool.notes}</p>
-        <PriceCandleChart pool={pool} title="Pool price sparkline" compact limit={32} />
-        <div className="pool-assets">
-          {pool.assets.map((asset, index) => (
-            <div key={asset.id}>
-              <span className="pool-asset-heading"><TokenLogo asset={asset} size="sm" /> {asset.symbol}</span>
-              {asset.name ? <small>{asset.name}</small> : null}
-              <strong>{reserves.isLoading ? <Skeleton width="9rem" /> : reserves.data ? formatAmount(reserves.data.assets[index]?.amount, asset.decimals) : "reserve unavailable"}</strong>
-              {asset.denomTrace ? <small title={asset.denomTrace}>{asset.denomTrace}</small> : null}
-              <details className="identifier-disclosure"><summary>Asset ID</summary><code>{asset.id}</code></details>
-            </div>
-          ))}
-        </div>
-        {reserves.isError ? <ErrorState title="RPC degraded" error="Reserves unavailable; registry metadata remains visible." onRetry={() => void reserves.refetch()} /> : null}
       </div>
       <MetricCell label="TVL" value={formatUsd(metrics?.tvlUsd)} metrics={metrics} access={access} />
       <MetricCell label="24h volume" value={formatUsd(metrics?.volume24hUsd)} metrics={metrics} access={access} />
       <MetricCell label="APR" value={formatApr(getPoolTotalApr(metrics))} metrics={metrics} access={access} />
       <div className="pool-meta" role="cell">
         <span>Type</span>
-        <strong>{poolType.label}</strong>
-        <small>{poolType.description}</small>
-        <span>Fee tier</span>
-        <strong>{pool.feeBps} bps</strong>
-        <details className="identifier-disclosure"><summary>Pair address</summary><code>{pool.pair}</code></details>
+        <strong>{poolType.shortLabel}</strong>
       </div>
       <div className="pool-position" role="cell">
         <span>Your position</span>
@@ -182,8 +167,8 @@ function MetricCell({ label, value, metrics, access }: { label: string; value: s
   return (
     <div className="pool-metric" role="cell">
       <span>{label}</span>
-      <strong>{value ?? "Metrics unavailable"}</strong>
-      <small>{value ? "Updated market data" : "Unavailable"}</small>
+      <strong>{value ?? "—"}</strong>
+      {value && access && !access.isStale ? <small>live</small> : null}
     </div>
   );
 }

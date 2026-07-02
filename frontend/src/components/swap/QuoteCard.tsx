@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { RouteQuote } from "../../queries/useSwapQuote";
 import type { RegistryAsset } from "../../config/registry";
 import { routeSymbols } from "../../lib/astroport/routes";
@@ -31,6 +32,7 @@ export function QuoteCard({
   isExpired?: boolean;
   onRefresh?: () => void;
 }) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const updatedAtLabel = updatedAt ? new Date(updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : undefined;
   const priceImpact = quote ? getPriceImpact({ spreadAmount: quote.spread_amount, returnAmount: quote.return_amount }) : null;
   const priceImpactClass = priceImpact?.severity === "high" ? "status-danger" : priceImpact?.severity === "warning" ? "status-warn" : "status-ok";
@@ -39,20 +41,32 @@ export function QuoteCard({
   const routeRisk = assessRouteRisk(route);
   const caveatedPoolTypes = route?.hops.filter((hop) => !getPoolTypeMetadata(hop.pool.type).supportsLocalPriceImpact).map((hop) => getPoolTypeMetadata(hop.pool.type).shortLabel) ?? [];
   const freshnessLabel = isExpired ? "expired" : expiresInMs !== undefined ? `expires in ${Math.ceil(expiresInMs / 1_000)}s` : undefined;
+  const summaryReturn = quote && askAsset ? `${formatAmount(quote.return_amount, askAsset.decimals)} ${askAsset.symbol}` : "Waiting";
+  const summaryImpact = isRouterRoute ? "router" : priceImpact ? formatBpsPercent(priceImpact.bps) : "—";
 
   return (
     <section className="quote-card">
       <div className="quote-header">
-        <span className="eyebrow">Quote details</span>
+        <button className="quote-toggle" type="button" aria-expanded={detailsOpen} onClick={() => setDetailsOpen((open) => !open)}>
+          <span className="eyebrow">Quote details</span>
+          <span aria-hidden="true">{detailsOpen ? "-" : "+"}</span>
+        </button>
         <div className="quote-actions">
           {freshnessLabel ? <span className={`status-pill ${isExpired ? "status-danger" : "status-ok"}`}>{freshnessLabel}</span> : null}
           <button className="text-button" type="button" onClick={onRefresh} disabled={isLoading || !quote}>Refresh quote</button>
           {isLoading ? <span className="status-pill status-warn">refreshing</span> : quote && !isExpired ? <span className="status-pill status-ok">live</span> : quote && isExpired ? <span className="status-pill status-danger">stale</span> : <span className="status-pill">waiting</span>}
         </div>
       </div>
+      {quote && askAsset && route ? (
+        <div className="quote-summary-row">
+          <span><small>Return</small><strong>{summaryReturn}</strong></span>
+          <span><small>Impact</small><strong className={priceImpactClass}>{summaryImpact}</strong></span>
+          <span><small>Route</small><strong>{route.hops.length} hop{route.hops.length === 1 ? "" : "s"}</strong></span>
+        </div>
+      ) : null}
       {isLoading ? <strong><Skeleton width="10rem" /> Querying route…</strong> : null}
       {error ? <ErrorState title="Route preview unavailable" error={error instanceof Error ? `${error.message}. Swaps stay disabled until a route can be simulated.` : `Swaps stay disabled until route simulation recovers. ${String(error)}`} /> : null}
-      {quote && askAsset && route ? (
+      {quote && askAsset && route && detailsOpen ? (
         <>
           <dl className="quote-details">
             {quote.mode === "exact-out" && offerAsset ? <div><dt>Required input</dt><dd className="quote-detail-value">{formatAmount(quote.offer_amount, offerAsset.decimals)} {offerAsset.symbol}</dd></div> : null}
@@ -70,7 +84,8 @@ export function QuoteCard({
           {route.hops[0]?.pool ? <PriceCandleChart pool={route.hops[0].pool} title="Route price" compact /> : null}
           {quote.errors?.length ? <p className="error-text">Some candidate routes could not be simulated: {quote.errors.join("; ")}</p> : null}
         </>
-      ) : <EmptyState title="Waiting for amount">Enter an amount to quote the best direct or router path.</EmptyState>}
+      ) : null}
+      {(!quote || !askAsset || !route) ? <EmptyState title="Waiting for amount">Enter an amount to quote the best direct or router path.</EmptyState> : null}
     </section>
   );
 }

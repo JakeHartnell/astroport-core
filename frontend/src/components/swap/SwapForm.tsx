@@ -166,7 +166,7 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
       <Stack className="swap-card-header" direction="horizontal" align="center" justify="space-between" flexWrap="wrap">
         <Box>
           <Text as="p" className="eyebrow">Smart swap</Text>
-          <Text as="h2" variant="heading">Best direct or router route</Text>
+          <Text as="h2" variant="heading">Swap</Text>
         </Box>
         <Button variant="outlined" intent="secondary" size="sm" className="slippage-pill" domAttributes={{ type: "button", title: `Swap max_spread ${maxSpread}` }}>Slippage {formattedSlippagePercent}%</Button>
       </Stack>
@@ -174,36 +174,38 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
         <span className={`mode-tab ${quote.data?.source === "pair" ? "active" : ""}`}>Direct pair</span>
         <span className={`mode-tab ${quote.data?.source === "router" ? "active" : dexRegistry.router ? "" : "disabled"}`} title={dexRegistry.router ? "Router is used when it returns the best route" : "Router contract is not configured"}>Router</span>
       </Box>
-      <Stack className="asset-amount-card" direction="vertical" space="4">
-        <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>From {quoteMode === "exact-out" ? "· required input" : ""}</span><strong className="asset-card-token"><TokenLogo asset={offerAsset} size="sm" /> {offerAsset.name ?? offerAsset.symbol}</strong></Stack>
-        <Stack className="form-grid" direction="horizontal" align="flex-end">
-          <TokenAmountInput
-            label={quoteMode === "exact-out" ? "Required amount" : "Amount"}
-            value={quoteMode === "exact-out" && quote.data ? formatAmount(quote.data.offer_amount, offerAsset.decimals) : amount}
-            decimals={offerAsset.decimals}
-            symbol={offerAsset.symbol}
-            balanceBaseAmount={offerBalance}
-            onChange={updateOfferAmount}
-            fiatHint={<span>{quoteMode === "exact-out" && quote.data ? "Calculated from reverse simulation" : "USD hint pending oracle wiring"}</span>}
-          />
-          <TokenSelect assets={selectableAssets} value={offerId} onChange={handleOfferChange} label="From asset" balances={balances.data} />
+      <div className="swap-amount-stack">
+        <Stack className="asset-amount-card" direction="vertical" space="4">
+          <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>From {quoteMode === "exact-out" ? "· required input" : ""}</span><strong className="asset-card-token"><TokenLogo asset={offerAsset} size="sm" /> {offerAsset.name ?? offerAsset.symbol}</strong></Stack>
+          <Stack className="form-grid" direction="horizontal" align="flex-end">
+            <TokenAmountInput
+              label={quoteMode === "exact-out" ? "Required amount" : "Amount"}
+              value={quoteMode === "exact-out" && quote.data ? formatAmount(quote.data.offer_amount, offerAsset.decimals) : amount}
+              decimals={offerAsset.decimals}
+              symbol={offerAsset.symbol}
+              balanceBaseAmount={offerBalance}
+              onChange={updateOfferAmount}
+              fiatHint={<span>{quoteMode === "exact-out" && quote.data ? "Calculated from reverse simulation" : "USD hint pending oracle wiring"}</span>}
+            />
+            <TokenSelect assets={selectableAssets} value={offerId} onChange={handleOfferChange} label="From asset" balances={balances.data} />
+          </Stack>
+          <code>{offerAsset.id}</code>
         </Stack>
-        <code>{offerAsset.id}</code>
-      </Stack>
-      <Button variant="outlined" intent="secondary" size="sm" className="swap-direction" onClick={handleFlip} domAttributes={{ type: "button", title: "Flip swap direction" }}>↓</Button>
-      <Stack className="asset-amount-card receive-card" direction="vertical" space="4">
-        <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>To {quoteMode === "exact-out" ? "· exact receive" : "· estimated receive"}</span><strong className="asset-card-token"><TokenLogo asset={askAsset} size="sm" /> {askAsset.name ?? askAsset.symbol}</strong></Stack>
-        <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== offerAsset.id)} value={askAsset.id} onChange={(next) => { setAskId(next); setQuoteMode("exact-in"); }} label="To asset" balances={balances.data} />
-        <TokenAmountInput
-          label={quoteMode === "exact-out" ? "Exact receive" : "Estimated receive"}
-          value={quoteMode === "exact-out" ? askAmount : quote.data ? formatAmount(quote.data.return_amount, askAsset.decimals) : ""}
-          decimals={askAsset.decimals}
-          symbol={askAsset.symbol}
-          onChange={updateAskAmount}
-          fiatHint={<span>{receiveAmount}</span>}
-        />
-        <code>{askAsset.id}</code>
-      </Stack>
+        <Button variant="outlined" intent="secondary" size="sm" className="swap-direction" onClick={handleFlip} domAttributes={{ type: "button", title: "Flip swap direction" }}>↓</Button>
+        <Stack className="asset-amount-card receive-card" direction="vertical" space="4">
+          <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>To {quoteMode === "exact-out" ? "· exact receive" : "· estimated receive"}</span><strong className="asset-card-token"><TokenLogo asset={askAsset} size="sm" /> {askAsset.name ?? askAsset.symbol}</strong></Stack>
+          <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== offerAsset.id)} value={askAsset.id} onChange={(next) => { setAskId(next); setQuoteMode("exact-in"); }} label="To asset" balances={balances.data} />
+          <TokenAmountInput
+            label={quoteMode === "exact-out" ? "Exact receive" : "Estimated receive"}
+            value={quoteMode === "exact-out" ? askAmount : quote.data ? formatAmount(quote.data.return_amount, askAsset.decimals) : ""}
+            decimals={askAsset.decimals}
+            symbol={askAsset.symbol}
+            onChange={updateAskAmount}
+            fiatHint={<span>{receiveAmount}</span>}
+          />
+          <code>{askAsset.id}</code>
+        </Stack>
+      </div>
       <QuoteCard quote={quote.data} askAsset={askAsset} offerAsset={offerAsset} isLoading={quote.isFetching || quote.isDebouncing} error={quote.error} slippageBps={slippageBps} updatedAt={quote.quoteUpdatedAt} expiresInMs={quote.expiresInMs} isExpired={quote.isExpired} onRefresh={() => void quote.refreshQuote()} />
       {quote.data?.source === "router" ? (
         <div className="price-impact-warning" role="status">Multi-hop routes touch multiple pools and may have higher execution risk. The router quote includes per-hop fees, but aggregate price impact is not exposed by this contract query.</div>

@@ -10,9 +10,9 @@ const StatsDashboardPage = lazy(() => import("../components/stats/StatsDashboard
 const SwapPage = lazy(() => import("../components/swap/SwapPage").then((module) => ({ default: module.SwapPage })));
 
 export const navigationItems = [
-  { to: "/stats", label: "Stats" },
   { to: "/swap", label: "Swap" },
   { to: "/pools", label: "Pools" },
+  { to: "/stats", label: "Stats" },
   { to: "/portfolio", label: "Portfolio" },
   { to: "/create", label: "Create" },
 ] as const;

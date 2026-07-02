@@ -24,36 +24,12 @@ export function DexShell({ children }: { children: ReactNode }) {
             <NavLink className="brand-lockup" to="/swap" aria-label="Juno DEX home">
               <img className="brand-logo" src={junoLogo} alt="" aria-hidden="true" />
               <span className="brand-copy">
-                <span className="eyebrow">Juno mainnet · Δ.4.0.0</span>
                 <h1 className="brand-title">
                   <img src={junoWordmark} alt="Juno" />
                   <span>DEX</span>
                 </h1>
               </span>
             </NavLink>
-
-            <div className="topbar-actions">
-              <ChainStatusBadge rpcEndpoint={dexRegistry.rpcEndpoint} />
-              <WalletConnectButton />
-              <button
-                className="icon-button"
-                type="button"
-                aria-label="Open settings"
-                aria-expanded={settingsOpen}
-                onClick={() => setSettingsOpen((open) => !open)}
-              >
-                ∴
-              </button>
-              <button
-                className="mobile-nav-toggle"
-                type="button"
-                aria-controls="primary-navigation"
-                aria-expanded={isNavOpen}
-                onClick={() => setIsNavOpen((open) => !open)}
-              >
-                Menu
-              </button>
-            </div>
           </div>
 
           <nav id="primary-navigation" className={`primary-nav ${isNavOpen ? "is-open" : ""}`} aria-label="Primary navigation">
@@ -68,9 +44,40 @@ export function DexShell({ children }: { children: ReactNode }) {
               </NavLink>
             ))}
           </nav>
-
-          {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
+          <div className="sidebar-network">
+            <span className="eyebrow">Network</span>
+            <div><span>Chain</span><strong>Juno</strong></div>
+            <div><span>Mode</span><strong>Swap</strong></div>
+            <div><span>Phase</span><strong>Live</strong></div>
+          </div>
         </header>
+
+        <div className="app-topbar">
+          <span className="eyebrow topbar-coord">Δ.4.0.0 · routing station</span>
+          <div className="topbar-actions">
+            <ChainStatusBadge rpcEndpoint={dexRegistry.rpcEndpoint} />
+            <WalletConnectButton />
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Open settings"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen((open) => !open)}
+            >
+              ∴
+            </button>
+            <button
+              className="mobile-nav-toggle"
+              type="button"
+              aria-controls="primary-navigation"
+              aria-expanded={isNavOpen}
+              onClick={() => setIsNavOpen((open) => !open)}
+            >
+              Menu
+            </button>
+          </div>
+          {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
+        </div>
 
         <NetworkGuardBanner />
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { dexRegistry } from "../../config/registry";
 import type { RouteQuote } from "../../queries/useSwapQuote";
@@ -34,7 +34,9 @@ describe("QuoteCard layout", () => {
 
     render(<QuoteCard quote={quote} askAsset={askAsset} isLoading={false} slippageBps={50} />);
 
-    const details = screen.getByText("Return").closest("dl");
+    fireEvent.click(screen.getByRole("button", { name: /quote details/i }));
+    const detailsLabel = screen.getAllByText("Return").find((element) => element.tagName === "DT");
+    const details = detailsLabel?.closest("dl");
     expect(details?.className).toBe("quote-details");
     expect(screen.getByText(pool.pair).closest("dd")?.className).toBe("quote-detail-value");
   });
@@ -58,6 +60,7 @@ describe("QuoteCard layout", () => {
 
     render(<QuoteCard quote={quote} askAsset={askAsset} isLoading={false} slippageBps={50} />);
 
+    fireEvent.click(screen.getByRole("button", { name: /quote details/i }));
     expect(screen.getAllByText(/contract-simulated/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Stable pool math is not recomputed locally/i)).toBeTruthy();
   });

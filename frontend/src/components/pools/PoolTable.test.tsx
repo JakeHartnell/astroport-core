@@ -72,20 +72,20 @@ describe("PoolTable", () => {
     mocks.metricRefetch.mockReset();
   });
 
-  it("renders token logos, names, and IBC trace hints", () => {
+  it("renders compact pool identity with token logos and pool type", () => {
     renderPoolTable();
 
     expect(screen.getByAltText("JUNO logo").getAttribute("src")).toBe("https://example.com/JUNO.svg");
-    expect(screen.getAllByText("USDC on Juno").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("transfer/channel-1/usdc").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("JUNO / USDC")).toBeTruthy();
+    expect(screen.getAllByText("XYK").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("transfer/channel-1/usdc")).toBeNull();
   });
 
   it("shows unavailable metric copy when metrics are not loaded", () => {
     renderPoolTable();
 
     expect(screen.getByText(/Browse pools by liquidity, volume, APR, type, and wallet position/i)).toBeTruthy();
-    expect(screen.getAllByText(/Metrics unavailable/i).length).toBeGreaterThanOrEqual(3);
-    expect(screen.getAllByText(/Unavailable/i).length).toBeGreaterThanOrEqual(3);
+    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
   });
 
   it("shows retry affordance when pool metrics fail", () => {
