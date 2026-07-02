@@ -33,7 +33,8 @@ export function AddLiquidityForm({ pool }: { pool: RegistryPool }) {
   const walletAddress = wallet.status === "connected" ? wallet.address : undefined;
   const balances = useWalletBalances(walletAddress, [pool]);
   const reserves = usePoolReserves(pool);
-  const provideTx = useProvideLiquidityTx(wallet.status === "connected" ? wallet.getSigningCosmWasmClient : undefined, walletAddress);
+  const signerOrClient = wallet.status === "connected" ? wallet.signer : undefined;
+  const provideTx = useProvideLiquidityTx(signerOrClient, walletAddress);
   const poolType = getPoolTypeMetadata(pool.type);
 
   const reserveAmounts = useMemo<[string, string] | undefined>(() => {

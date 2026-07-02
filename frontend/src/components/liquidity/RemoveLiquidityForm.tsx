@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import type { RegistryPool } from "../../config/registry";
 import { formatAmount, isBaseAmountGreaterThan, parseTokenAmount } from "../../lib/format/amounts";
 import { applySlippageToAssets, calculatePercentageFill, estimateWithdrawAssets } from "../../lib/liquidity/withdraw";
@@ -14,7 +12,6 @@ import { useSlippageSettings } from "../../settings/SlippageSettingsContext";
 import { useNetworkGuard, useWallet } from "../../wallet/WalletContext";
 import { RiskAcknowledgement, RiskBadgeList, TokenAmountInput, useToast } from "../common";
 
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 const QUICK_FILL_PERCENTAGES = [25, 50, 75, 100] as const;
 
 function isPositiveBaseAmount(amount: string) {
@@ -47,9 +44,7 @@ export function RemoveLiquidityForm({ pool }: { pool: RegistryPool }) {
   const minAssetsToReceive = useMemo(() => applySlippageToAssets(expectedAssets, slippageBps), [expectedAssets, slippageBps]);
   const risk = assessPoolRisk(pool, reserves.data);
   const poolType = getPoolTypeMetadata(pool.type);
-  const signerOrClient = wallet.status === "connected"
-    ? (wallet.getSigningCosmWasmClient as SigningClientGetter | undefined) ?? (wallet.signer as OfflineSigner | undefined)
-    : undefined;
+  const signerOrClient = wallet.status === "connected" ? wallet.signer : undefined;
   const withdraw = useWithdrawLiquidityTx(signerOrClient, walletAddress);
 
   const hasAmount = parsedAmount.isValid && isPositiveBaseAmount(lpBaseAmount);

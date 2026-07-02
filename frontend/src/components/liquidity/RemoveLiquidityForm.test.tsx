@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
   wallet: {
     status: "connected" as const,
     address: "juno1wallet",
-    getSigningCosmWasmClient: vi.fn(),
+    signer: vi.fn(),
   },
   network: {
     expectedChainId: "juno-1" as const,

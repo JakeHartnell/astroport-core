@@ -1,14 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
 import type { RegistryAsset, RegistryPool } from "../config/registry";
 import { dexRegistry } from "../config/registry";
 import { createSwapMessage } from "../lib/astroport/messages";
 import { createRouterSwapMessage, type SwapRoute } from "../lib/astroport/routes";
-import { getSigningClient } from "../lib/cosmjs/clients";
+import { resolveSigningClient, type SigningClientSource } from "../lib/cosmjs/clients";
 import { invalidateDexTxQueries, type TxResult, useTxRunner } from "../tx/useTxRunner";
-
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
 type SwapTxVariables = {
   pool?: RegistryPool;
@@ -21,13 +17,7 @@ type SwapTxVariables = {
   source: "pair" | "router";
 };
 
-async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClientGetter | undefined) {
-  if (!signerOrClient) return undefined;
-  if (typeof signerOrClient === "function") return signerOrClient();
-  return getSigningClient(signerOrClient);
-}
-
-export function useSwapTx(signerOrClient: OfflineSigner | SigningClientGetter | undefined, sender: string | undefined) {
+export function useSwapTx(signerOrClient: SigningClientSource, sender: string | undefined) {
   const queryClient = useQueryClient();
   const txRunner = useTxRunner();
   const mutation = useMutation<TxResult, Error, SwapTxVariables>({

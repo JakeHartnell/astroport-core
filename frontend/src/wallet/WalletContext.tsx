@@ -30,7 +30,7 @@ function createE2EWalletContext(): WalletContextValue {
     address: E2E_WALLET_ADDRESS,
     name: "Playwright Wallet",
     chainId: JUNO_CHAIN_INFO.chainId,
-    getSigningCosmWasmClient: async () => createE2ESigningClient() as never,
+    signer: async () => createE2ESigningClient() as never,
   };
   return {
     wallet,
@@ -62,7 +62,6 @@ export function useCosmosKitWallet(): WalletContextValue {
         name: chain.username ?? chain.wallet?.prettyName,
         chainId: connectedChainId,
         signer: chain.getOfflineSigner(),
-        getSigningCosmWasmClient: chain.getSigningCosmWasmClient,
       };
     }
 

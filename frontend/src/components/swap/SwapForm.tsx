@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { Box, Button, Stack, Text } from "@interchain-ui/react";
 import { dexRegistry, type RegistryAsset, type RegistryPool } from "../../config/registry";
 import type { SwapQuoteMode } from "../../lib/astroport/queries";
@@ -16,8 +14,6 @@ import { RiskAcknowledgement, TokenAmountInput, TokenLogo } from "../common";
 import { TxStatusDialog } from "../tx/TxStatusDialog";
 import { QuoteCard } from "./QuoteCard";
 import { TokenSelect } from "./TokenSelect";
-
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
 type SwapFormProps = {
   pool: RegistryPool;
@@ -68,9 +64,7 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
   const balances = useWalletBalances(walletAddress, allPools);
   const offerBalance = getWalletBalanceAmount(balances.data, offerAsset.id);
   const quote = useSwapQuote(allPools, offerAsset, askAsset, quoteInputBaseAmount, quoteMode);
-  const signerOrClient = wallet.status === "connected"
-    ? (wallet.getSigningCosmWasmClient as SigningClientGetter | undefined) ?? (wallet.signer as OfflineSigner | undefined)
-    : undefined;
+  const signerOrClient = wallet.status === "connected" ? wallet.signer : undefined;
   const swapTx = useSwapTx(signerOrClient, walletAddress);
   const requiredOfferBaseAmount = quoteMode === "exact-out" && quote.data ? quote.data.offer_amount : parsedOfferInput.baseAmount;
   const hasAmount = activeParsedAmount.isValid && isPositiveBaseAmount(quoteInputBaseAmount);

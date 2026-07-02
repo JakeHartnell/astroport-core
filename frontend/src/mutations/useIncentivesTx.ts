@@ -1,15 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
-import type { Coin } from "@cosmjs/stargate";
 import type { RegistryPool } from "../config/registry";
 import { createClaimRewardsMessage, createStakeLpExecute, createUnstakeLpMessage, getIncentivesContractAddress } from "../lib/incentives";
-import { getSigningClient } from "../lib/cosmjs/clients";
-import { invalidateDexTxQueries, type TxResult, useTxRunner } from "../tx/useTxRunner";
-
-type ExecuteClient = {
-  execute: (senderAddress: string, contractAddress: string, msg: Record<string, unknown>, fee: "auto" | number, memo?: string, funds?: Coin[]) => Promise<unknown>;
-};
-type SigningClientGetter = () => Promise<ExecuteClient>;
+import { resolveSigningClient, type SigningClientSource } from "../lib/cosmjs/clients";
+import { invalidateDexTxQueries, useTxRunner } from "../tx/useTxRunner";
 
 type IncentivesAction = "stake" | "unstake" | "claim";
 
@@ -19,13 +12,7 @@ type IncentivesVariables = {
   amount?: string;
 };
 
-async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClientGetter | undefined): Promise<ExecuteClient | undefined> {
-  if (!signerOrClient) return undefined;
-  if (typeof signerOrClient === "function") return signerOrClient();
-  return getSigningClient(signerOrClient);
-}
-
-export function useIncentivesTx(signerOrClient: OfflineSigner | SigningClientGetter | undefined, sender: string | undefined) {
+export function useIncentivesTx(signerOrClient: SigningClientSource, sender: string | undefined) {
   const queryClient = useQueryClient();
   const txRunner = useTxRunner();
   const mutation = useMutation({
@@ -40,7 +27,7 @@ export function useIncentivesTx(signerOrClient: OfflineSigner | SigningClientGet
           const client = await resolveSigningClient(signerOrClient);
           if (!client || !sender) throw new Error("Connect a wallet before broadcasting");
           const { msg, funds } = buildIncentivesExecute(pool, action, amount);
-          return client.execute(sender, incentivesAddress, msg as Record<string, unknown>, "auto", undefined, funds) as Promise<TxResult>;
+          return client.execute(sender, incentivesAddress, msg as Record<string, unknown>, "auto", undefined, funds);
         },
         successMessage: (_result, { action, pool }) => `${incentivesActionTitle(action)} transaction submitted for ${pool.label}.`,
         onSuccess: (_result, { pool }) => {

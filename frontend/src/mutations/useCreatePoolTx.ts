@@ -1,13 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
 import type { RegistryAsset } from "../config/registry";
 import { dexRegistry } from "../config/registry";
 import { createPairMessage, extractCreatedPairAddress, type CreatePoolConfigOption } from "../lib/createPool";
-import { getSigningClient } from "../lib/cosmjs/clients";
+import { resolveSigningClient, type SigningClientSource } from "../lib/cosmjs/clients";
 import { invalidateDexTxQueries, type TxResult, useTxRunner } from "../tx/useTxRunner";
-
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
 type CreatePoolTxResult = TxResult & { pairAddress?: string };
 
@@ -16,13 +12,7 @@ type CreatePoolTxVariables = {
   option: CreatePoolConfigOption;
 };
 
-async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClientGetter | undefined) {
-  if (!signerOrClient) return undefined;
-  if (typeof signerOrClient === "function") return signerOrClient();
-  return getSigningClient(signerOrClient);
-}
-
-export function useCreatePoolTx(signerOrClient: OfflineSigner | SigningClientGetter | undefined, sender: string | undefined) {
+export function useCreatePoolTx(signerOrClient: SigningClientSource, sender: string | undefined) {
   const queryClient = useQueryClient();
   const txRunner = useTxRunner();
   const mutation = useMutation<CreatePoolTxResult, Error, CreatePoolTxVariables>({

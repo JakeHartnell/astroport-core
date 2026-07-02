@@ -5,7 +5,7 @@ import { AddLiquidityForm } from "./AddLiquidityForm";
 
 const mocks = vi.hoisted(() => ({
   wallet: {
-    wallet: { status: "connected", address: "juno1wallet" } as { status: "idle" | "connected"; address?: string; getSigningCosmWasmClient?: () => Promise<unknown> },
+    wallet: { status: "connected", address: "juno1wallet", signer: vi.fn() } as { status: "idle" | "connected"; address?: string; signer?: unknown },
     connect: vi.fn(),
   },
   network: {
@@ -74,7 +74,7 @@ describe("AddLiquidityForm", () => {
       assets: [{ amount: "1000000" }, { amount: "2000000" }],
       total_share: "1000000",
     };
-    mocks.wallet.wallet = { status: "connected", address: "juno1wallet", getSigningCosmWasmClient: vi.fn() };
+    mocks.wallet.wallet = { status: "connected", address: "juno1wallet", signer: vi.fn() };
     mocks.network.network = {
       expectedChainId: "juno-1",
       connectedChainId: "juno-1",

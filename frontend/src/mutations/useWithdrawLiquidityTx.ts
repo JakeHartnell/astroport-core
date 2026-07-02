@@ -1,14 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
 import type { Coin } from "@cosmjs/stargate";
 import type { RegistryPool } from "../config/registry";
 import type { Asset } from "../lib/generated/Pair.types";
 import { createWithdrawLiquidityMessage } from "../lib/astroport/messages";
-import { getSigningClient } from "../lib/cosmjs/clients";
+import { resolveSigningClient, type SigningClientSource } from "../lib/cosmjs/clients";
 import { invalidateDexTxQueries, useTxRunner } from "../tx/useTxRunner";
-
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
 type WithdrawLiquidityVariables = {
   pool: RegistryPool;
@@ -16,13 +12,7 @@ type WithdrawLiquidityVariables = {
   minAssetsToReceive?: Asset[];
 };
 
-async function resolveSigningClient(signerOrClient: OfflineSigner | SigningClientGetter | undefined) {
-  if (!signerOrClient) return undefined;
-  if (typeof signerOrClient === "function") return signerOrClient();
-  return getSigningClient(signerOrClient);
-}
-
-export function useWithdrawLiquidityTx(signerOrClient: OfflineSigner | SigningClientGetter | undefined, sender: string | undefined) {
+export function useWithdrawLiquidityTx(signerOrClient: SigningClientSource, sender: string | undefined) {
   const queryClient = useQueryClient();
   const txRunner = useTxRunner();
   const mutation = useMutation({

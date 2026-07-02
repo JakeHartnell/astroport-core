@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import { Box, Button, Stack, Text } from "@interchain-ui/react";
 import type { RegistryAsset } from "../../config/registry";
 import { dexRegistry } from "../../config/registry";
@@ -15,8 +13,6 @@ import { useNetworkGuard, useWallet } from "../../wallet/WalletContext";
 import { EmptyState, ErrorState, RiskAcknowledgement, RiskBadgeList, Skeleton, TokenLogo } from "../common";
 import { TxStatusDialog } from "../tx/TxStatusDialog";
 import { TokenSelect } from "../swap/TokenSelect";
-
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
 type CustomAssetDraft = {
   enabled: boolean;
@@ -90,9 +86,7 @@ export function CreatePoolPage() {
   });
   const validation = validateCreatePool({ assets: [assetA, assetB], option: selectedOption, existingPair: localDuplicate ?? duplicateQuery.data, riskAcknowledged });
   const walletAddress = wallet.status === "connected" ? wallet.address : undefined;
-  const signerOrClient = wallet.status === "connected"
-    ? (wallet.getSigningCosmWasmClient as SigningClientGetter | undefined) ?? (wallet.signer as OfflineSigner | undefined)
-    : undefined;
+  const signerOrClient = wallet.status === "connected" ? wallet.signer : undefined;
   const createPoolTx = useCreatePoolTx(signerOrClient, walletAddress);
   const submitDisabled = wallet.status !== "connected" || !network.isJunoReady || network.isWrongNetwork || configQuery.isError || duplicateQuery.isError || !validation.isValid || createPoolTx.isPending;
   const actionCopy = network.isWrongNetwork

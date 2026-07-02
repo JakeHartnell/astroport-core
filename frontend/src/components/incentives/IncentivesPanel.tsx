@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import type { OfflineSigner } from "@cosmjs/proto-signing";
-import type { SigningCosmWasmClient } from "@cosmjs/cosmwasm-stargate";
 import type { RegistryPool } from "../../config/registry";
 import type { Asset, AssetInfo, RewardInfo } from "../../lib/generated/Incentives.types";
 import { formatAmount, isBaseAmountGreaterThan, parseTokenAmount } from "../../lib/format/amounts";
@@ -11,8 +9,6 @@ import { useIncentivesPool } from "../../queries/useIncentives";
 import { getWalletBalanceAmount, resolveDenom, useWalletBalances } from "../../queries/useWalletBalances";
 import { useNetworkGuard, useWallet } from "../../wallet/WalletContext";
 import { TokenAmountInput, useToast } from "../common";
-
-type SigningClientGetter = () => Promise<SigningCosmWasmClient>;
 
 function isPositiveBaseAmount(amount: string) {
   return /^\d+$/.test(amount) && BigInt(amount) > 0n;
@@ -45,9 +41,7 @@ export function IncentivesPanel({ pool, metrics }: { pool: RegistryPool; metrics
   const stakeExceedsBalance = Boolean(lpBalance && parsedStake.isValid && isBaseAmountGreaterThan(stakeBaseAmount, lpBalance));
   const unstakeExceedsBalance = Boolean(stakedBalance && parsedUnstake.isValid && isBaseAmountGreaterThan(unstakeBaseAmount, stakedBalance));
   const hasPendingRewards = (incentives.data?.pendingRewards ?? []).some((reward) => isPositiveBaseAmount(reward.amount));
-  const signerOrClient = wallet.status === "connected"
-    ? (wallet.getSigningCosmWasmClient as SigningClientGetter | undefined) ?? (wallet.signer as OfflineSigner | undefined)
-    : undefined;
+  const signerOrClient = wallet.status === "connected" ? wallet.signer : undefined;
   const incentivesTx = useIncentivesTx(signerOrClient, walletAddress);
   const rewardRps = useMemo(() => totalRewardRps(incentives.data?.rewardInfo ?? []), [incentives.data?.rewardInfo]);
 

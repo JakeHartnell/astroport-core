@@ -5,11 +5,10 @@ import { SwapForm } from "./SwapForm";
 
 const mocks = vi.hoisted(() => ({
   wallet: {
-    wallet: { status: "connected", address: "juno1wallet", getSigningCosmWasmClient: vi.fn() } as {
+    wallet: { status: "connected", address: "juno1wallet", signer: vi.fn() } as {
       status: "idle" | "connected";
       address?: string;
       signer?: unknown;
-      getSigningCosmWasmClient?: () => Promise<unknown>;
     },
     connect: vi.fn(),
   },
@@ -119,7 +118,7 @@ function routerRoute() {
 describe("SwapForm", () => {
   beforeEach(() => {
     mocks.mutate.mockReset();
-    mocks.wallet.wallet = { status: "connected", address: "juno1wallet", getSigningCosmWasmClient: vi.fn() };
+    mocks.wallet.wallet = { status: "connected", address: "juno1wallet", signer: vi.fn() };
     mocks.network.network = {
       expectedChainId: "juno-1",
       connectedChainId: "juno-1",
