@@ -1,4 +1,4 @@
-import type { IndexerHealth, IndexerPage, IndexerPoolMetrics, IndexerPoolPosition, IndexerProtocolStats, IndexerWalletTransaction } from "./types";
+import type { IndexerHealth, IndexerPage, IndexerPoolMetrics, IndexerPoolPosition, IndexerPrice, IndexerProtocolStats, IndexerWalletTransaction } from "./types";
 
 export type IndexerClientOptions = {
   baseUrl: string;
@@ -23,11 +23,19 @@ function withPagination(path: string, params: { limit?: number; cursor?: string 
   return suffix ? `${path}?${suffix}` : path;
 }
 
+function pricesPath(assets: readonly string[]) {
+  const query = new URLSearchParams();
+  query.set("assets", assets.join(","));
+  return `/prices?${query.toString()}`;
+}
+
 export function createIndexerClient({ baseUrl, fetcher = fetch }: IndexerClientOptions) {
   const root = trimBaseUrl(baseUrl);
   return {
     health: () => getJson<IndexerHealth>(fetcher, `${root}/health`),
     stats: () => getJson<IndexerProtocolStats>(fetcher, `${root}/stats`),
+    prices: (assets: readonly string[]) => getJson<{ data: IndexerPrice[] }>(fetcher, `${root}${pricesPath(assets)}`),
+    price: (asset: string) => getJson<IndexerPrice>(fetcher, `${root}/prices/${encodeURIComponent(asset)}`),
     pools: (params?: { limit?: number; cursor?: string }) => getJson<IndexerPage<IndexerPoolMetrics>>(fetcher, `${root}${withPagination("/pools", params)}`),
     pool: (id: string) => getJson<IndexerPoolMetrics>(fetcher, `${root}/pools/${encodeURIComponent(id)}`),
     poolPositions: (id: string, params?: { limit?: number; cursor?: string }) => getJson<IndexerPage<IndexerPoolPosition>>(fetcher, `${root}${withPagination(`/pools/${encodeURIComponent(id)}/positions`, params)}`),

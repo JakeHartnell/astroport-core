@@ -5,6 +5,8 @@ export const openApiDocument = {
   paths: {
     "/health": { get: { summary: "Health and data-source status" } },
     "/stats": { get: { summary: "Protocol TVL, volume, fee and pool totals" } },
+    "/prices": { get: { summary: "Resolve one or more native, IBC or CW20 assets to USD prices" } },
+    "/prices/{asset}": { get: { summary: "Resolve a native denom, IBC denom or CW20 contract to a USD price" } },
     "/pools": { get: { summary: "List pools with TVL, volume, fees and APR metrics" } },
     "/pools/{id}": { get: { summary: "Pool detail by id or pair address" } },
     "/pools/{id}/candles": {

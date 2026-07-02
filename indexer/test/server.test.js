@@ -38,10 +38,28 @@ describe("indexer API routes", () => {
     assert.equal(body.data.length, 1);
     assert.equal(body.data[0].pairAddress, "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv");
     assert.equal(body.data[0].tvlUsd, 2500);
+    assert.equal(body.data[0].assets[0].priceUsd, 1.25);
+    assert.equal(body.data[0].assets[0].priceStatus, "fresh");
+    assert.equal(body.data[0].assets[1].priceUsd, 1);
     assert.equal(body.data[0].feeApr, 17.52);
     assert.equal(body.data[0].incentivesApr, 21.9);
     assert.equal(body.data[0].totalApr, 39.42);
     assert.equal(body.data[0].isMock, true);
+  });
+
+  it("resolves denom prices from the API", async () => {
+    const response = await fetch(`${baseUrl}/prices?assets=ujunox,ibc/mock-usdc,ibc/unknown`);
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.equal(body.data[0].asset, "ujuno");
+    assert.equal(body.data[0].priceUsd, 1.25);
+    assert.equal(body.data[0].source, "mock");
+    assert.equal(body.data[0].isMock, true);
+    assert.equal(body.data[2].status, "missing");
+    assert.equal(body.data[2].priceUsd, null);
+
+    const single = await (await fetch(`${baseUrl}/prices/ujuno`)).json();
+    assert.equal(single.priceUsd, 1.25);
   });
 
   it("returns pool detail, positions, wallet positions and wallet history", async () => {

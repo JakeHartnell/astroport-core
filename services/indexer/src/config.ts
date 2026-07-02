@@ -23,6 +23,13 @@ export type IndexerConfig = {
   batchSize: number;
   dryRun: boolean;
   cursorId: string;
+  priceProviderBaseUrl?: string;
+  priceProviderApiKey?: string;
+  priceProviderName: string;
+  priceCacheTtlMs: number;
+  priceStaleAfterMs: number;
+  priceAllowStale: boolean;
+  priceDevMocks: boolean;
 };
 
 function env(name: string, fallback: string): string {
@@ -69,5 +76,12 @@ export function loadConfig(): IndexerConfig {
     batchSize: Math.max(1, intEnv("BATCH_SIZE", 20)),
     dryRun: boolEnv("DRY_RUN"),
     cursorId: env("CURSOR_ID", "astroport-juno-v1"),
+    priceProviderBaseUrl: process.env.PRICE_PROVIDER_BASE_URL || undefined,
+    priceProviderApiKey: process.env.PRICE_PROVIDER_API_KEY || undefined,
+    priceProviderName: env("PRICE_PROVIDER_NAME", "provider"),
+    priceCacheTtlMs: intEnv("PRICE_CACHE_TTL_MS", 300_000),
+    priceStaleAfterMs: intEnv("PRICE_STALE_AFTER_MS", 1_800_000),
+    priceAllowStale: boolEnv("PRICE_ALLOW_STALE", true),
+    priceDevMocks: boolEnv("PRICE_DEV_MOCKS"),
   };
 }

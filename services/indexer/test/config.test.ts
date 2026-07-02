@@ -12,6 +12,9 @@ describe("config", () => {
       expect(config.startHeight).toBe(1);
       expect(config.batchSize).toBeGreaterThan(0);
       expect(config.wsUrl).toContain("websocket");
+      expect(config.priceProviderName).toBe("provider");
+      expect(config.priceCacheTtlMs).toBe(300_000);
+      expect(config.priceAllowStale).toBe(true);
     } finally {
       process.env = previous;
     }
