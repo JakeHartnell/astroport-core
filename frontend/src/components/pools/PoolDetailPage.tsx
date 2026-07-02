@@ -9,6 +9,7 @@ import { getPoolTypeMetadata } from "../../lib/pools/poolTypes";
 import { assessPoolRisk } from "../../lib/risk";
 import { useDexRegistry } from "../../queries/useDexRegistry";
 import { usePoolMetrics, usePoolReserves, useWalletIndexerData } from "../../queries/usePools";
+import { PriceCandleChart } from "../charts/PriceCandleChart";
 import { useWallet } from "../../wallet/WalletContext";
 import { ExplorerLink, RiskBadgeList, TokenLogo } from "../common";
 import { IncentivesPanel } from "../incentives/IncentivesPanel";
@@ -101,9 +102,8 @@ export function PoolDetailPage() {
         </dl>
       </section>
 
-      <section className="pool-detail-section" aria-labelledby="chart-title">
-        <h3 id="chart-title">Price chart</h3>
-        <p className="empty-state">Price charts depend on the pool indexer/charting service. Current source: {dataSourceLabel(poolMetrics.access)}.</p>
+      <section className="pool-detail-section">
+        <PriceCandleChart pool={pool} title="Price chart" />
       </section>
 
       <section id="position"><LpPositionPanel pool={pool} compact /></section>

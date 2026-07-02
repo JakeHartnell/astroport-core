@@ -49,6 +49,16 @@ vi.mock("../../queries/useSwapQuote", () => ({
   useSwapQuote: () => mocks.quote,
 }));
 
+vi.mock("../../queries/usePools", () => ({
+  usePoolCandles: () => ({
+    data: [],
+    access: { source: "indexer", isFallback: false, isMock: false, isStale: false },
+    isLoading: false,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 vi.mock("../../settings/SlippageSettingsContext", () => ({
   useSlippageSettings: () => ({ slippageBps: 50, formattedSlippagePercent: "0.5", maxSpread: "0.005" }),
 }));

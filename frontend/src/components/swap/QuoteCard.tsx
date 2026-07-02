@@ -6,6 +6,7 @@ import { getPoolTypeMetadata } from "../../lib/pools/poolTypes";
 import { assessRouteRisk } from "../../lib/risk";
 import { calculateMinimumReceived, formatBpsPercent, getPriceImpact } from "../../lib/swap/slippage";
 import { EmptyState, ErrorState, ExplorerLink, RiskBadgeList, Skeleton } from "../common";
+import { PriceCandleChart } from "../charts/PriceCandleChart";
 
 export function QuoteCard({
   quote,
@@ -66,6 +67,7 @@ export function QuoteCard({
             <div><dt>Source</dt><dd className="quote-detail-value">{isRouterRoute ? (quote.mode === "exact-out" ? "router reverse_simulate_swap_operations" : "router simulate_swap_operations") : (quote.mode === "exact-out" ? "pair reverse simulation" : "pair simulation")}{updatedAtLabel ? ` · ${updatedAtLabel}` : ""}</dd></div>
           </dl>
           {caveatedPoolTypes.length ? <p className="price-impact-warning" role="status">{Array.from(new Set(caveatedPoolTypes)).join("/")} pool math is not recomputed locally. Pricing, spread, and fees come from contract simulation; liquidity forms show separate caveats where local estimates are unavailable.</p> : null}
+          {route.hops[0]?.pool ? <PriceCandleChart pool={route.hops[0].pool} title="Route price" compact /> : null}
           {quote.errors?.length ? <p className="error-text">Some candidate routes could not be simulated: {quote.errors.join("; ")}</p> : null}
         </>
       ) : <EmptyState title="Waiting for amount">Enter an amount to quote the best direct or router path.</EmptyState>}

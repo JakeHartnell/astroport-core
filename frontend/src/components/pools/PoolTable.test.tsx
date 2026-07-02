@@ -17,6 +17,7 @@ vi.mock("../../queries/usePools", () => ({
     data: { assets: [{ amount: "1000000" }, { amount: "2000000" }], total_share: "1000000" },
     refetch: vi.fn(),
   }),
+  usePoolCandles: () => ({ data: [], access: mocks.access, isLoading: false, isFetching: false, refetch: vi.fn() }),
 }));
 
 vi.mock("../../queries/useWalletBalances", async () => {

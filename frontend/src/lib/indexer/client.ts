@@ -1,4 +1,4 @@
-import type { IndexerHealth, IndexerPage, IndexerPoolMetrics, IndexerPoolPosition, IndexerPrice, IndexerProtocolStats, IndexerWalletTransaction } from "./types";
+import type { IndexerCandleInterval, IndexerHealth, IndexerPage, IndexerPoolCandlesResponse, IndexerPoolMetrics, IndexerPoolPosition, IndexerPrice, IndexerProtocolStats, IndexerWalletTransaction } from "./types";
 
 export type IndexerClientOptions = {
   baseUrl: string;
@@ -49,6 +49,19 @@ function withPagination(path: string, params: { limit?: number; cursor?: string 
   return suffix ? `${path}?${suffix}` : path;
 }
 
+function candlesPath(id: string, params: { interval?: IndexerCandleInterval; from?: string; to?: string; baseAsset?: string; quoteAsset?: string; limit?: number; cursor?: string } = {}) {
+  const query = new URLSearchParams();
+  if (params.interval) query.set("interval", params.interval);
+  if (params.from) query.set("from", params.from);
+  if (params.to) query.set("to", params.to);
+  if (params.baseAsset) query.set("baseAsset", params.baseAsset);
+  if (params.quoteAsset) query.set("quoteAsset", params.quoteAsset);
+  if (params.limit) query.set("limit", String(params.limit));
+  if (params.cursor) query.set("cursor", params.cursor);
+  const suffix = query.toString();
+  return `/pools/${encodeURIComponent(id)}/candles${suffix ? `?${suffix}` : ""}`;
+}
+
 function pricesPath(assets: readonly string[]) {
   const query = new URLSearchParams();
   query.set("assets", assets.join(","));
@@ -64,6 +77,7 @@ export function createIndexerClient({ baseUrl, fetcher = fetch, timeoutMs }: Ind
     price: (asset: string) => getJson<IndexerPrice>(fetcher, `${root}/prices/${encodeURIComponent(asset)}`, timeoutMs),
     pools: (params?: { limit?: number; cursor?: string }) => getJson<IndexerPage<IndexerPoolMetrics>>(fetcher, `${root}${withPagination("/pools", params)}`, timeoutMs),
     pool: (id: string) => getJson<IndexerPoolMetrics>(fetcher, `${root}/pools/${encodeURIComponent(id)}`, timeoutMs),
+    poolCandles: (id: string, params?: { interval?: IndexerCandleInterval; from?: string; to?: string; baseAsset?: string; quoteAsset?: string; limit?: number; cursor?: string }) => getJson<IndexerPoolCandlesResponse>(fetcher, `${root}${candlesPath(id, params)}`, timeoutMs),
     poolPositions: (id: string, params?: { limit?: number; cursor?: string }) => getJson<IndexerPage<IndexerPoolPosition>>(fetcher, `${root}${withPagination(`/pools/${encodeURIComponent(id)}/positions`, params)}`, timeoutMs),
     walletPositions: (address: string, params?: { limit?: number; cursor?: string }) => getJson<IndexerPage<IndexerPoolPosition>>(fetcher, `${root}${withPagination(`/wallets/${encodeURIComponent(address)}/positions`, params)}`, timeoutMs),
     walletHistory: (address: string, params?: { limit?: number; cursor?: string }) => getJson<IndexerPage<IndexerWalletTransaction>>(fetcher, `${root}${withPagination(`/wallets/${encodeURIComponent(address)}/history`, params)}`, timeoutMs),

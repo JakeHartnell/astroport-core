@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { RegistryPool } from "../../config/registry";
-import { loadPoolMetrics, loadStatsDashboard, loadWalletIndexerData, resetIndexerCircuitBreakerForTests, type IndexerRuntimeConfig } from "./indexerFallback";
+import { loadPoolCandles, loadPoolMetrics, loadStatsDashboard, loadWalletIndexerData, resetIndexerCircuitBreakerForTests, type IndexerRuntimeConfig } from "./indexerFallback";
 
 const pool = { id: "juno-usdc", label: "JUNO / USDC", pair: "juno1pool", lpToken: "factory/lp", type: "xyk", feeBps: 30, assets: [], enabled: true, verified: true, source: "registry" } as unknown as RegistryPool;
 
@@ -76,6 +76,40 @@ describe("indexer fallback data access", () => {
 
     expect(result.state).toMatchObject({ source: "mock", isMock: true, isStale: true });
     expect(result.data[pool.pair]).toMatchObject({ source: "mock", isMock: true, isStale: true });
+  });
+
+  it("loads pool candles and preserves mock/stale source labels", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-07-02T12:00:00.000Z").getTime());
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "mock", isMock: true });
+      expect(url).toContain("/pools/juno1pool/candles?interval=1h");
+      expect(url).toContain("baseAsset=ujuno");
+      return json({
+        data: [{ poolId: pool.pair, pairAddress: pool.pair, baseAsset: "ujuno", quoteAsset: "ibc%2Fusdc", interval: "1h", bucketStart: "2026-07-02T10:00:00.000Z", open: 1, high: 1.2, low: 0.9, close: 1.1, volume: 10, volumeQuote: 11, tradeCount: 2, dataSource: "mock", isMock: true }],
+        pagination: { limit: 200, nextCursor: null },
+        meta: { dataSource: "mock", isMock: true },
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const candlePool = { ...pool, assets: [{ id: "ujuno" }, { id: "ibc/usdc" }] } as RegistryPool;
+    const result = await loadPoolCandles(candlePool, { interval: "1h", range: "24h" }, config({ staleAfterMs: 1 }));
+
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0].close).toBe(1.1);
+    expect(result.state).toMatchObject({ source: "mock", isMock: true, isStale: true });
+  });
+
+  it("keeps empty candle responses empty instead of generating fake chart data", async () => {
+    const fetcher = vi.fn(async (url: string) => url.endsWith("/health")
+      ? json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false })
+      : json({ data: [], pagination: { limit: 200, nextCursor: null }, meta: { dataSource: "indexer", isMock: false } }));
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadPoolCandles(pool, { interval: "1h" }, config());
+
+    expect(result.data).toEqual([]);
+    expect(result.state).toMatchObject({ source: "indexer", isFallback: false, isMock: false });
   });
 
   it("loads indexed wallet positions and transaction history without falling back", async () => {

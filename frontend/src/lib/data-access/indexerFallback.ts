@@ -1,6 +1,6 @@
 import type { RegistryPool } from "../../config/registry";
 import { createIndexerClient, getConfiguredIndexerBaseUrl, IndexerRequestError } from "../indexer/client";
-import type { IndexerPoolMetrics, IndexerPoolPosition, IndexerProtocolStats, IndexerWalletTransaction } from "../indexer/types";
+import type { IndexerCandleInterval, IndexerPoolCandle, IndexerPoolMetrics, IndexerPoolPosition, IndexerProtocolStats, IndexerWalletTransaction } from "../indexer/types";
 import type { PoolMetrics, PoolMetricsByPair } from "../pools/poolList";
 import { sortTopPools, type ProtocolStats, type StatsDashboardData, type TopPool } from "../stats/dashboard";
 
@@ -23,6 +23,22 @@ export type DataAccessState = {
 export type DataAccessResult<T> = {
   data: T;
   state: DataAccessState;
+};
+
+export type PoolCandleRange = "24h" | "7d" | "30d" | "90d";
+export type PoolCandlesOptions = {
+  interval?: IndexerCandleInterval;
+  range?: PoolCandleRange;
+  limit?: number;
+  baseAsset?: string;
+  quoteAsset?: string;
+};
+
+const RANGE_MS: Record<PoolCandleRange, number> = {
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
+  "90d": 90 * 24 * 60 * 60 * 1000,
 };
 
 export type IndexerRuntimeConfig = {
@@ -153,6 +169,32 @@ function normalizeTopPool(row: Partial<IndexerPoolMetrics> & Record<string, unkn
   };
 }
 
+function normalizeCandle(row: Partial<IndexerPoolCandle> & Record<string, unknown>): IndexerPoolCandle | undefined {
+  const bucketStart = (row.bucketStart ?? row.bucket_start) as string | undefined;
+  const open = optionalNumber(row.open);
+  const high = optionalNumber(row.high);
+  const low = optionalNumber(row.low);
+  const close = optionalNumber(row.close);
+  if (!bucketStart || open === undefined || high === undefined || low === undefined || close === undefined) return undefined;
+  return {
+    poolId: (row.poolId ?? row.pool_id ?? row.pairAddress ?? row.pair_address ?? null) as string | null,
+    pairAddress: (row.pairAddress ?? row.pair_address ?? row.poolId ?? row.pool_id ?? null) as string | null,
+    baseAsset: (row.baseAsset ?? row.base_asset ?? null) as string | null,
+    quoteAsset: (row.quoteAsset ?? row.quote_asset ?? null) as string | null,
+    interval: (row.interval ?? "1h") as IndexerPoolCandle["interval"],
+    bucketStart,
+    open,
+    high,
+    low,
+    close,
+    volume: optionalNumber(row.volume) ?? 0,
+    volumeQuote: optionalNumber(row.volumeQuote ?? row.volume_quote ?? row.volume_usd) ?? 0,
+    tradeCount: optionalNumber(row.tradeCount ?? row.trade_count) ?? 0,
+    dataSource: (row.dataSource ?? row.data_source ?? "indexer") as IndexerPoolCandle["dataSource"],
+    isMock: Boolean(row.isMock ?? row.is_mock),
+  };
+}
+
 async function withAttempts<T>(attempts: number, fn: () => Promise<T>) {
   let lastError: unknown;
   for (let attempt = 0; attempt <= attempts; attempt += 1) {
@@ -241,6 +283,39 @@ export async function loadStatsDashboard(pools: RegistryPool[], config = getInde
     const accessError = toAccessError(error, "network");
     openCircuit(config, accessError);
     return { data: empty, state: fallbackState(accessError) };
+  }
+}
+
+export async function loadPoolCandles(pool: RegistryPool | undefined, options: PoolCandlesOptions = {}, config = getIndexerRuntimeConfig()): Promise<DataAccessResult<IndexerPoolCandle[]>> {
+  if (!pool) return { data: [], state: fallbackState({ code: "disabled", message: "Pool is not selected" }, "disabled") };
+  const earlyFallback = shouldUseFallback(config);
+  if (earlyFallback) return { data: [], state: earlyFallback };
+  try {
+    const client = createIndexerClient({ baseUrl: config.baseUrl!, timeoutMs: config.timeoutMs });
+    const interval = options.interval ?? "1h";
+    const range = options.range ?? "7d";
+    const to = new Date().toISOString();
+    const from = new Date(Date.now() - RANGE_MS[range]).toISOString();
+    const health = await withAttempts(config.retry, () => client.health());
+    if (health.status !== "ok") throw new IndexerRequestError(`Indexer health is ${health.status}`, { code: "invalid-response" });
+    const payload = await withAttempts(config.retry, () => client.poolCandles(pool.pair, {
+      interval,
+      from,
+      to,
+      baseAsset: options.baseAsset ?? pool.assets[0]?.id,
+      quoteAsset: options.quoteAsset ?? pool.assets[1]?.id,
+      limit: options.limit ?? 200,
+    }));
+    const candles = payload.data.map((row) => normalizeCandle(row)).filter((row): row is IndexerPoolCandle => Boolean(row));
+    const first = candles.find((candle) => candle.isMock) ?? candles[0];
+    const updatedAt = candles.at(-1)?.bucketStart;
+    const isMock = Boolean(payload.meta?.isMock || first?.isMock || payload.meta?.dataSource === "mock");
+    const isStale = updatedAt ? Date.now() - Date.parse(updatedAt) > config.staleAfterMs : false;
+    return { data: candles, state: { source: isMock ? "mock" : "indexer", isFallback: false, isMock, isStale, updatedAt } };
+  } catch (error) {
+    const accessError = toAccessError(error, "network");
+    openCircuit(config, accessError);
+    return { data: [], state: fallbackState(accessError) };
   }
 }
 
