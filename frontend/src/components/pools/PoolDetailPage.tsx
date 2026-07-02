@@ -11,6 +11,7 @@ import { useDexRegistry } from "../../queries/useDexRegistry";
 import { usePoolMetrics, usePoolReserves, useWalletIndexerData } from "../../queries/usePools";
 import { useWallet } from "../../wallet/WalletContext";
 import { ExplorerLink, RiskBadgeList, TokenLogo } from "../common";
+import { IncentivesPanel } from "../incentives/IncentivesPanel";
 import { AddLiquidityForm } from "../liquidity/AddLiquidityForm";
 import { LpPositionPanel } from "../liquidity/LpPositionPanel";
 import { RemoveLiquidityForm } from "../liquidity/RemoveLiquidityForm";
@@ -50,6 +51,7 @@ export function PoolDetailPage() {
           <Link to="/swap">Swap</Link>
           <a href="#add-liquidity">Add liquidity</a>
           <a href="#remove-liquidity">Remove liquidity</a>
+          <a href="#incentives">Incentives</a>
         </div>
       </div>
 
@@ -105,11 +107,13 @@ export function PoolDetailPage() {
       </section>
 
       <section id="position"><LpPositionPanel pool={pool} compact /></section>
+      <IncentivesPanel pool={pool} metrics={metrics} />
 
       <div className="mode-tabs pool-detail-tabs" aria-label="Liquidity sections">
         <a className="mode-tab active" href="#add-liquidity">Add</a>
         <a className="mode-tab" href="#remove-liquidity">Remove</a>
         <a className="mode-tab" href="#position">Position</a>
+        <a className="mode-tab" href="#incentives">Incentives</a>
       </div>
       <div className="liquidity-grid">
         <section id="add-liquidity"><AddLiquidityForm pool={pool} /></section>

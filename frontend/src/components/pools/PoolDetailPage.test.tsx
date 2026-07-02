@@ -65,6 +65,10 @@ vi.mock("../liquidity/LpPositionPanel", () => ({
   LpPositionPanel: () => <section>LP position panel</section>,
 }));
 
+vi.mock("../incentives/IncentivesPanel", () => ({
+  IncentivesPanel: () => <section>Incentives panel</section>,
+}));
+
 function renderDetail() {
   return render(
     <MemoryRouter initialEntries={[`/pools/${pool.pair}`]}>
