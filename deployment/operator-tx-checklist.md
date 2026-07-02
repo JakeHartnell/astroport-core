@@ -114,6 +114,22 @@ Before opening public pair creation, keep the factory `xyk` pair config
 - A tiny round-trip swap succeeds through the pair/router path with expected
   slippage bounds.
 
+Generate the guarded create/seed/query/swap command sequence from the rendered
+config so the first-pool denoms, factory address, and chain ID cannot drift:
+
+```sh
+python3 scripts/build_juno_v1_first_pool_smoke_commands.py \
+  --config deployment/juno-v1-testnet.json \
+  --from "$JUNO_OWNER" \
+  --pair-address '$PAIR_ADDR' \
+  --fees 7500ujunox
+```
+
+Save the generated broadcast responses under
+`deployment/tx/uni-7/first-pool-smoke-create-pair.json` and
+`deployment/tx/uni-7/first-pool-smoke-tiny-swap.json`. Do not run the open-XYK
+helper until these pass.
+
 Only after those checks pass, broadcast `update_pair_config` with the same pair
 code ID and fees to set `permissioned=false`. Generate the message and
 copy/paste-safe `junod tx wasm execute` command from the rendered config so the

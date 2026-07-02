@@ -108,6 +108,7 @@ Three diffs to the AI audit; one mechanical (A), two functional (B, C). See
 | `39-factory-docs-launch-gate-2026-07-02.md` | Factory/operator docs guard for the permissioned first-pool launch gate and XYK-only v1 scope. |
 | `40-operator-first-pool-gate-2026-07-02.md` | Operator tx checklist update that makes first-pool smoke checks and permissioned gate removal explicit. |
 | `41-open-pair-config-tx-helper-2026-07-02.md` | Generated `junod tx wasm execute` helper for the post-smoke `update_pair_config` open-XYK step. |
+| `42-first-pool-smoke-command-helper-2026-07-02.md` | Generated permissioned first-pool create/seed/query/tiny-swap command helper and CI guard. |
 
 Files marked "(P*)" are stubs until that phase begins.
 

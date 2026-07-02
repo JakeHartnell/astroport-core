@@ -105,6 +105,27 @@ python3 scripts/check_juno_v1_deployment_template.py deployment/juno-v1-testnet.
 
 The fill script rewires dependent instantiate fields from the top-level values, including factory pair code ID, whitelist/tracker config, router factory address, native incentives denom, and oracle asset info.
 
+## Permissioned first-pool smoke commands
+
+Before opening public pair creation, keep factory XYK creation permissioned and
+use the rendered config to generate the official first-pool create/seed/smoke
+commands:
+
+```sh
+python3 scripts/build_juno_v1_first_pool_smoke_commands.py \
+  --config deployment/juno-v1-testnet.json \
+  --from "$JUNO_OWNER" \
+  --pair-address '$PAIR_ADDR' \
+  --fees 7500ujunox
+```
+
+The helper prints the permissioned `create_pair` tx, factory `pair` lookup,
+native `provide_liquidity`, `pool`/`simulation` queries, and tiny `swap` tx. It
+saves suggested tx outputs under `deployment/tx/uni-7/first-pool-smoke-*.json`,
+including `first-pool-smoke-create-pair.json` and
+`first-pool-smoke-tiny-swap.json`. Do not run the open-XYK helper until these pass
+and the pool query confirms non-zero liquidity.
+
 ## Post-smoke open-XYK command
 
 After the first pool is registered, seeded, and smoke-checked, generate the
