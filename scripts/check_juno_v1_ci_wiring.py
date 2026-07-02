@@ -64,6 +64,7 @@ def main() -> None:
     operator_checklist_line = tests.first("scripts/check_juno_v1_operator_checklist.py")
     dry_run_txs_line = tests.first("scripts/check_juno_v1_dry_run_txs.py")
     deployment_gitignore_line = tests.first("scripts/check_juno_v1_deployment_gitignore.py")
+    factory_docs_line = tests.first("scripts/check_juno_v1_factory_docs.py")
     deployment_readme_line = tests.first("scripts/check_juno_v1_deployment_readme.py")
     frontend_config_line = tests.first("scripts/check_juno_v1_frontend_config.py")
     frontend_types_line = tests.first("scripts/generate_juno_v1_frontend_types.py --check")
@@ -86,6 +87,7 @@ def main() -> None:
         ("operator checklist guard", operator_checklist_line),
         ("dry-run tx rehearsal guard", dry_run_txs_line),
         ("deployment gitignore guard", deployment_gitignore_line),
+        ("factory docs guard", factory_docs_line),
         ("deployment README guard", deployment_readme_line),
         ("frontend config guard", frontend_config_line),
         ("frontend TypeScript handoff guard", frontend_types_line),
@@ -107,6 +109,7 @@ def main() -> None:
         < operator_checklist_line
         < dry_run_txs_line
         < deployment_gitignore_line
+        < factory_docs_line
         < deployment_readme_line
         < frontend_config_line
         < frontend_types_line
@@ -116,7 +119,7 @@ def main() -> None:
         < frontend_release_bundle_line
         < ci_wiring_line
     ):
-        fail("tests workflow must run launch guards in scope/schema/template/tx-extractor/deployment-command/secret-scan/operator-checklist/dry-run-txs/deployment-gitignore/deployment-readme/frontend-config/frontend-types/frontend-example/frontend-handoff-sync/frontend-release-checklist/frontend-release-bundle/ci-wiring order")
+        fail("tests workflow must run launch guards in scope/schema/template/tx-extractor/deployment-command/secret-scan/operator-checklist/dry-run-txs/deployment-gitignore/factory-docs/deployment-readme/frontend-config/frontend-types/frontend-example/frontend-handoff-sync/frontend-release-checklist/frontend-release-bundle/ci-wiring order")
 
     if len(schema_lines) < 2:
         fail("tests workflow must run schema guard both before Rust work and after schema generation")
@@ -148,7 +151,7 @@ def main() -> None:
     print("OK: GitHub Actions wiring enforces Astroport-Juno v1 guards")
     print(
         "tests_guards=scope/schema/template/tx-extractor/deployment-command/secret-scan/operator-checklist pre_rust=true "
-        "dry_run_txs=true deployment_gitignore=true deployment_readme=true frontend_config=true frontend_types=true frontend_example=true frontend_handoff_sync=true frontend_release_checklist=true frontend_release_bundle=true schema_post_generation=true artifact_guard_after_size=true artifact_handoff=upload-download release_artifacts_no_cache=true"
+        "dry_run_txs=true deployment_gitignore=true factory_docs=true deployment_readme=true frontend_config=true frontend_types=true frontend_example=true frontend_handoff_sync=true frontend_release_checklist=true frontend_release_bundle=true schema_post_generation=true artifact_guard_after_size=true artifact_handoff=upload-download release_artifacts_no_cache=true"
     )
 
 

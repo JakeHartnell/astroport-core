@@ -1,6 +1,10 @@
 # Astroport Factory
 
-The factory contract can create new Astroport pair contracts (and associated LP token contracts) and it is used as a directory for all pairs. The default pair types are constant product and stableswap but governance may decide to add custom pools that can have any implementation.
+The factory contract creates Astroport pair contracts (and associated LP token contracts) and acts as the on-chain directory for pairs.
+
+Astroport-Juno v1 intentionally launches with only the constant-product (`xyk`) pair type. Deferred upstream surfaces such as stable, PCL/concentrated, transmuter, sale-tax, and custom pair variants are not part of the v1 contract/artifact set.
+
+For launch safety, the Juno deployment template instantiates the `xyk` pair config with `permissioned: true`. The owner should create and seed the official first pool, run swap/liquidity smoke checks, then execute `update_pair_config` with the same `xyk` code ID/fees and `permissioned: false` to open public pair creation.
 
 ---
 
@@ -21,7 +25,10 @@ The instantiation message takes in the token code ID for the token type supporte
       },
       "total_fee_bps": 100,
       "maker_fee_bps": 10,
-      "is_disabled": false
+      "is_disabled": false,
+      "is_generator_disabled": false,
+      "permissioned": true,
+      "whitelist": null
     }
   ]
 }
@@ -78,9 +85,11 @@ As an example, let's say a pool charged 30bps (`total_fee_bps` is 30) and we wan
 
 ### `create_pair`
 
-Anyone can execute this function to create an Astroport pair. `CreatePair` creates both a `Pair` contract and a `LP(liquidity provider)` token contract. The account that instantiates the pair must specify the pair type they want as well as the assets for which the pool is created.
+`CreatePair` creates both a `Pair` contract and an LP (liquidity provider) token contract. The account that instantiates the pair must specify the `xyk` pair type and the assets for which the pool is created.
 
-Custom pool types may also need extra parameters which can be packed in `init_params`.
+On Astroport-Juno v1, public callers can execute this only after the launch owner opens the `xyk` pair config by setting `permissioned: false`. While `permissioned: true`, the factory owner or an allowed whitelist/admin path must create the official first pool.
+
+Juno v1 does not use custom pair types; keep `init_params` null/omitted for `xyk`.
 
 ```json
 {

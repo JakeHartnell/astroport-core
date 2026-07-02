@@ -50,11 +50,12 @@ Three diffs to the AI audit; one mechanical (A), two functional (B, C). See
   still applies — LLM review is cheaper but benefits from the same surface
   segregation (mechanical strip vs functional patch). Upstream Astroport
   audit PDFs are still useful priors but not on the critical path.
-- **Permissioned pair creation:** **no.** v1 is permissionless from day one.
-  Anyone can call `factory.CreatePair { Xyk, ... }`. The whitelist contract
-  is still uploaded (for forward compatibility), but no `PairConfig` sets
-  `permissioned: true`. Pair-quality signal layer is a UI concern, not
-  contract.
+- **First-pool launch gate:** v1 starts with the factory `xyk` pair config
+  `permissioned: true` so operators can create, seed, and smoke-check the
+  official first pool before public pair creation opens. After the first pool
+  is registered and liquidity/swap checks pass, owner/governance executes
+  `update_pair_config` with the same code ID/fees and `permissioned: false`.
+  No stable/PCL/custom pair types are in v1 scope.
 - **Working location:** local only. Trunk lives in
   `/workspace/astroport-core` on branch `juno/main`. No remote push until
   fork-home identity is settled (`memory/juno-ai-github-identity.md`).
@@ -104,6 +105,7 @@ Three diffs to the AI audit; one mechanical (A), two functional (B, C). See
 | `36-frontend-handoff-sync-guard-2026-06-29.md` | Frontend address key sync guard across template, TypeScript, example, README, and CI. |
 | `37-frontend-release-checklist-guard-2026-06-29.md` | Frontend release checklist and guard for copying rendered deployment files into the UI repo. |
 | `38-frontend-release-bundle-ci-2026-07-02.md` | Frontend release bundle helper wired into CI with ignored zip output guardrails. |
+| `39-factory-docs-launch-gate-2026-07-02.md` | Factory/operator docs guard for the permissioned first-pool launch gate and XYK-only v1 scope. |
 
 Files marked "(P*)" are stubs until that phase begins.
 

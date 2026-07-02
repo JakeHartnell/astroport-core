@@ -34,6 +34,7 @@ jobs:
           python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_operator_checklist.py
           python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_dry_run_txs.py
           python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_deployment_gitignore.py
+          python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_factory_docs.py
           python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_deployment_readme.py
           python3 $GITHUB_WORKSPACE/scripts/check_juno_v1_frontend_config.py
           python3 $GITHUB_WORKSPACE/scripts/generate_juno_v1_frontend_types.py --check

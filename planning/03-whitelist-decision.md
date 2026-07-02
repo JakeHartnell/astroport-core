@@ -63,8 +63,8 @@ Reject.
 ## Decision
 
 Option (a). Neutron-strip the contract in P0 commit #6. Whitelist contract
-ships in the v0.1.0 artifact set, uploaded but never instantiated unless a
-future `PairConfig` opts into `permissioned: true`.
+ships in the v0.1.0 artifact set and can be instantiated when a v1 factory
+`PairConfig` opts into `permissioned: true` for the first-pool launch gate.
 
 ## Execution checklist (commit #6)
 
@@ -78,12 +78,14 @@ future `PairConfig` opts into `permissioned: true`.
 - [ ] `cargo build -p astroport-whitelist` exits 0.
 - [ ] `cargo test -p astroport-whitelist` exits 0.
 
-## Open question — permissioned pair creation in v1?
+## Permissioned pair creation in v1
 
-**Resolved 2026-05-13: no.** v1 is permissionless. Anyone can call
-`factory.CreatePair { Xyk, ... }`. No `PairConfig` sets `permissioned: true`.
-Whitelist contract ships in the v0.1.0 artifact set as forward-compat
-infrastructure only — no instantiation in v1.
+**Updated 2026-07-02:** v1 uses a narrow first-pool launch gate. The factory
+starts with the `xyk` `PairConfig` set to `permissioned: true`, operators create
+and seed the official first pool, then owner/governance opens public pair
+creation with `update_pair_config { permissioned: false }` after registry,
+liquidity, and smoke-check evidence is captured. This does not expand v1 scope:
+only `xyk` is active, and stable/PCL/custom pair types remain deferred.
 
 ## Follow-ups (post-v1)
 
