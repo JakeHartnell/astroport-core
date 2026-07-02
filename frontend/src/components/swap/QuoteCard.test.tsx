@@ -9,10 +9,12 @@ describe("QuoteCard layout", () => {
     const pool = dexRegistry.pools[0];
     const askAsset = pool.assets[1];
     const quote: RouteQuote = {
+      offer_amount: "1000000",
       return_amount: "123456789012345678901234567890",
       spread_amount: "12345678901234567890",
       commission_amount: "12345678901234567890",
       source: "pair",
+      mode: "exact-in",
       route: {
         id: "direct",
         hops: [{ pool, offerAsset: pool.assets[0], askAsset: pool.assets[1] }],

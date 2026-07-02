@@ -1,12 +1,13 @@
 import type { RegistryAsset, RegistryPool } from "../../config/registry";
 import type { PairsResponse, QueryMsg as FactoryQueryMsg } from "../generated/Factory.types";
-import type { PoolResponse, QueryMsg as PairQueryMsg, SimulationResponse } from "../generated/Pair.types";
+import type { PoolResponse, QueryMsg as PairQueryMsg, ReverseSimulationResponse, SimulationResponse } from "../generated/Pair.types";
 import type { QueryMsg as RouterQueryMsg, SimulateSwapOperationsResponse, SwapOperation } from "../generated/Router.types";
 import { dexRegistry } from "../../config/registry";
 import { toAsset } from "./assetInfo";
 
 export type PoolAssetResponse = { info: unknown; amount: string };
-export type { PoolResponse, SimulationResponse } from "../generated/Pair.types";
+export type { PoolResponse, ReverseSimulationResponse, SimulationResponse } from "../generated/Pair.types";
+export type SwapQuoteMode = "exact-in" | "exact-out";
 export type { SimulateSwapOperationsResponse } from "../generated/Router.types";
 
 function encodeSmartQuery(message: unknown): string {
@@ -49,11 +50,37 @@ export async function querySwapSimulation(
   } satisfies PairQueryMsg);
 }
 
+export async function queryReverseSwapSimulation(
+  pairAddress: string,
+  offerAsset: RegistryAsset,
+  askAsset: RegistryAsset,
+  askAmount: string,
+): Promise<ReverseSimulationResponse> {
+  return queryContractSmart(pairAddress, {
+    reverse_simulation: {
+      ask_asset: toAsset(askAsset, askAmount),
+      offer_asset_info: offerAsset.kind === "cw20"
+        ? { token: { contract_addr: offerAsset.id } }
+        : { native_token: { denom: offerAsset.id } },
+    },
+  } satisfies PairQueryMsg);
+}
+
 export async function queryRouterSimulation(operations: SwapOperation[], offerAmount: string): Promise<SimulateSwapOperationsResponse> {
   if (!dexRegistry.router) throw new Error("Router contract is not configured");
   return queryContractSmart(dexRegistry.router, {
     simulate_swap_operations: {
       offer_amount: offerAmount,
+      operations,
+    },
+  } satisfies RouterQueryMsg);
+}
+
+export async function queryRouterReverseSimulation(operations: SwapOperation[], askAmount: string): Promise<SimulateSwapOperationsResponse> {
+  if (!dexRegistry.router) throw new Error("Router contract is not configured");
+  return queryContractSmart(dexRegistry.router, {
+    reverse_simulate_swap_operations: {
+      ask_amount: askAmount,
       operations,
     },
   } satisfies RouterQueryMsg);
