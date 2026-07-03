@@ -112,6 +112,7 @@ Three diffs to the AI audit; one mechanical (A), two functional (B, C). See
 | `43-first-pool-query-evidence-2026-07-03.md` | First-pool smoke helper now saves pair lookup, pool, and simulation query evidence before opening public XYK creation. |
 | `44-first-pool-smoke-evidence-validator-2026-07-03.md` | Offline validator for saved first-pool smoke tx/query evidence before opening public XYK creation. |
 | `45-first-pool-smoke-evidence-strictness-2026-07-03.md` | Validator strictness for distinct first-pool smoke tx hashes and post-swap pool-query delta. |
+| `46-first-pool-smoke-evidence-order-2026-07-03.md` | Validator strictness for tx-height launch ordering across first-pool smoke broadcasts. |
 
 Files marked "(P*)" are stubs until that phase begins.
 

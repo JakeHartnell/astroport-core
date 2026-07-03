@@ -61,13 +61,13 @@ def write_json(path: pathlib.Path, data: Any) -> None:
 
 def write_fixture_set(directory: pathlib.Path, *, prefix: str = "first-pool-smoke") -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    for suffix, txhash in (
-        ("create-pair", "CREATEPAIR123"),
-        ("provide-liquidity", "PROVIDE12345"),
-        ("tiny-swap", "TINYSWAP123"),
-        ("router-tiny-swap", "ROUTERSWAP1"),
+    for suffix, txhash, height in (
+        ("create-pair", "CREATEPAIR123", "12345"),
+        ("provide-liquidity", "PROVIDE12345", "12346"),
+        ("tiny-swap", "TINYSWAP123", "12347"),
+        ("router-tiny-swap", "ROUTERSWAP1", "12348"),
     ):
-        write_json(directory / f"{prefix}-{suffix}.json", {"height": "12345", "txhash": txhash, "code": 0, "raw_log": "[]"})
+        write_json(directory / f"{prefix}-{suffix}.json", {"height": height, "txhash": txhash, "code": 0, "raw_log": "[]"})
     write_json(directory / f"{prefix}-pair-lookup.json", {"data": {"contract_addr": PAIR}})
     pool = {
         "data": {
@@ -193,6 +193,16 @@ def main() -> None:
         if "must differ" not in unchanged_proc.stderr:
             fail(f"unchanged post-swap pool error was not explicit: {unchanged_proc.stderr!r}")
 
+        out_of_order_heights = tmp / "out-of-order-heights"
+        write_fixture_set(out_of_order_heights)
+        provide_path = out_of_order_heights / "first-pool-smoke-provide-liquidity.json"
+        provide = json.loads(provide_path.read_text())
+        provide["height"] = "12344"
+        write_json(provide_path, provide)
+        height_proc = run_validator(out_of_order_heights, config, expect_ok=False)
+        if "nondecreasing in launch order" not in height_proc.stderr:
+            fail(f"out-of-order tx height error was not explicit: {height_proc.stderr!r}")
+
     docs = README.read_text() + "\n" + CHECKLIST.read_text()
     for needle in (
         "scripts/validate_juno_v1_first_pool_smoke_evidence.py",
@@ -204,7 +214,7 @@ def main() -> None:
             fail(f"operator docs missing first-pool evidence validator text: {needle}")
 
     print("OK: Juno v1 first-pool smoke evidence validator accepts complete fixtures and rejects unsafe evidence")
-    print("first_pool_smoke_evidence_validator=true tx_files=4 query_files=5 failure_cases=6 txhash_uniqueness=true post_swap_pool_delta=true")
+    print("first_pool_smoke_evidence_validator=true tx_files=4 query_files=5 failure_cases=7 txhash_uniqueness=true tx_height_order=true post_swap_pool_delta=true")
 
 
 if __name__ == "__main__":

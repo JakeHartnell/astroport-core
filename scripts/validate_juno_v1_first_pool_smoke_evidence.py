@@ -69,7 +69,18 @@ def tx_code(data: dict[str, Any]) -> int:
         fail(f"tx code must be numeric when present, got {raw!r}")
 
 
-def validate_tx(path: pathlib.Path) -> str:
+def positive_int_field(data: dict[str, Any], key: str, *, label: str) -> int:
+    raw: Any = data.get(key)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        fail(f"{label} must be a positive integer, got {raw!r}")
+    if value <= 0:
+        fail(f"{label} must be positive, got {value}")
+    return value
+
+
+def validate_tx(path: pathlib.Path) -> tuple[str, int]:
     data = object_at(load_json(path), path)
     code = tx_code(data)
     if code != 0:
@@ -78,7 +89,8 @@ def validate_tx(path: pathlib.Path) -> str:
     txhash = data.get("txhash") or data.get("tx_hash") or data.get("transactionHash")
     if not isinstance(txhash, str) or len(txhash.strip()) < 8:
         fail(f"tx evidence missing txhash: {path}")
-    return txhash.strip()
+    height = positive_int_field(data, "height", label=f"tx height in {path}")
+    return txhash.strip(), height
 
 
 def extract_pair_address(data: dict[str, Any]) -> str:
@@ -174,9 +186,14 @@ def main() -> None:
     load_expected_pair(args.config)
     paths = {suffix: args.dir / f"{args.prefix}-{suffix}.json" for suffix in (*TX_SUFFIXES, *QUERY_SUFFIXES)}
 
-    txhashes = [validate_tx(paths[suffix]) for suffix in TX_SUFFIXES]
+    tx_results = [validate_tx(paths[suffix]) for suffix in TX_SUFFIXES]
+    txhashes = [txhash for txhash, _height in tx_results]
     if len(set(txhashes)) != len(txhashes):
         fail("tx evidence files must contain four distinct txhashes")
+    tx_heights = [height for _txhash, height in tx_results]
+    if tx_heights != sorted(tx_heights):
+        ordered_names = ", ".join(TX_SUFFIXES)
+        fail(f"tx evidence heights must be nondecreasing in launch order ({ordered_names}), got {tx_heights}")
 
     pair_lookup = object_at(load_json(paths["pair-lookup"]), paths["pair-lookup"])
     pair_address = extract_pair_address(pair_lookup)
