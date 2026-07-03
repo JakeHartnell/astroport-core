@@ -29,35 +29,100 @@ export function QuoteCard({
   updatedAt?: number;
   onSlippageBps?: (bps: number) => void;
 }) {
-  const priceImpact = quote ? getPriceImpact({ spreadAmount: quote.spread_amount, returnAmount: quote.return_amount }) : null;
-  const priceImpactClass = priceImpact?.severity === "high" ? "status-danger" : priceImpact?.severity === "warning" ? "status-warn" : "status-ok";
+  const priceImpact = quote
+    ? getPriceImpact({
+        spreadAmount: quote.spread_amount,
+        returnAmount: quote.return_amount,
+      })
+    : null;
+  const priceImpactClass =
+    priceImpact?.severity === "high"
+      ? "status-danger"
+      : priceImpact?.severity === "warning"
+      ? "status-warn"
+      : "status-ok";
   const route = quote?.route;
   const isRouterRoute = quote?.source === "router";
-  const rateLabel = quote && offerAsset && askAsset
-    ? `1 ${offerAsset.symbol} = ${(Number(formatAmount(quote.return_amount, askAsset.decimals).replace(/,/g, "")) / Number(formatAmount(quote.offer_amount, offerAsset.decimals).replace(/,/g, "") || "1")).toLocaleString(undefined, { maximumSignificantDigits: 6 })} ${askAsset.symbol}`
-    : "—";
+  const rateLabel =
+    quote && offerAsset && askAsset
+      ? `1 ${offerAsset.symbol} = ${(
+          Number(
+            formatAmount(quote.return_amount, askAsset.decimals).replace(
+              /,/g,
+              ""
+            )
+          ) /
+          Number(
+            formatAmount(quote.offer_amount, offerAsset.decimals).replace(
+              /,/g,
+              ""
+            ) || "1"
+          )
+        ).toLocaleString(undefined, { maximumSignificantDigits: 6 })} ${
+          askAsset.symbol
+        }`
+      : "—";
   const maxSlippageLabel = formatBpsPercent(slippageBps);
 
   return (
     <section className="quote-card">
-      {isLoading ? <strong><Skeleton width="10rem" /> Querying route…</strong> : null}
-      {error ? <ErrorState title="Route preview unavailable" error={error instanceof Error ? `${error.message}. Swaps stay disabled until a route can be simulated.` : `Swaps stay disabled until route simulation recovers. ${String(error)}`} /> : null}
+      {isLoading ? (
+        <strong>
+          <Skeleton width="10rem" /> Querying route…
+        </strong>
+      ) : null}
+      {error ? (
+        <ErrorState
+          title="Route preview unavailable"
+          error={
+            error instanceof Error
+              ? `${error.message}. Swaps stay disabled until a route can be simulated.`
+              : `Swaps stay disabled until route simulation recovers. ${String(
+                  error
+                )}`
+          }
+        />
+      ) : null}
       {quote && askAsset && route ? (
         <>
           <dl className="quote-rows">
-            <div><dt>Rate</dt><dd className="quote-row-value">{rateLabel}</dd></div>
-            <div><dt>Route</dt><dd className="quote-row-value route-value">{routeSymbols(route)} · {route.hops.length} hop{route.hops.length === 1 ? "" : "s"}</dd></div>
-            <div><dt>Price impact</dt><dd className={`quote-row-value ${priceImpactClass}`}>{isRouterRoute ? "—" : priceImpact ? formatBpsPercent(priceImpact.bps) : "—"}</dd></div>
+            <div>
+              <dt>Rate</dt>
+              <dd className="quote-row-value">{rateLabel}</dd>
+            </div>
+            <div>
+              <dt>Route</dt>
+              <dd className="quote-row-value route-value">
+                {routeSymbols(route)} · {route.hops.length} hop
+                {route.hops.length === 1 ? "" : "s"}
+              </dd>
+            </div>
+            <div>
+              <dt>Price impact</dt>
+              <dd className={`quote-row-value ${priceImpactClass}`}>
+                {isRouterRoute
+                  ? "—"
+                  : priceImpact
+                  ? formatBpsPercent(priceImpact.bps)
+                  : "—"}
+              </dd>
+            </div>
             <div className="slippage-row">
               <dt>Max slippage</dt>
               <dd className="quote-row-value">
                 {onSlippageBps ? (
-                  <span className="slippage-chips" role="group" aria-label="Max slippage preset">
+                  <span
+                    className="slippage-chips"
+                    role="group"
+                    aria-label="Max slippage preset"
+                  >
                     {SLIPPAGE_PRESETS.map((preset) => (
                       <button
                         key={preset.bps}
                         type="button"
-                        className={`slippage-chip${slippageBps === preset.bps ? " active" : ""}`}
+                        className={`slippage-chip${
+                          slippageBps === preset.bps ? " active" : ""
+                        }`}
                         aria-pressed={slippageBps === preset.bps}
                         onClick={() => onSlippageBps(preset.bps)}
                       >
@@ -65,13 +130,14 @@ export function QuoteCard({
                       </button>
                     ))}
                   </span>
-                ) : maxSlippageLabel}
+                ) : (
+                  maxSlippageLabel
+                )}
               </dd>
             </div>
           </dl>
         </>
       ) : null}
-      {(!quote || !askAsset || !route) ? <EmptyState title="Waiting for amount">Enter an amount to quote the best direct or router path.</EmptyState> : null}
     </section>
   );
 }

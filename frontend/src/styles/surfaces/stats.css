@@ -1,6 +1,9 @@
 /* Surface overrides: stats. Cascades after theme.css — scoped, page-specific rules only. */
 
-.stats-dashboard-page { max-width: 1000px; }
+.stats-dashboard-page {
+  width: 100%;
+  max-width: none;
+}
 
 /* Eyebrow-led header — no billboard card, no long paragraph. */
 .stats-hero {

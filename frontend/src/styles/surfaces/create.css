@@ -1,5 +1,14 @@
 /* Surface overrides: create. Cascades after theme.css — scoped, page-specific rules only. */
 
+.create-pool-page {
+  width: 100%;
+  max-width: none;
+}
+
+.create-pool-page > .swap-card {
+  max-width: none;
+}
+
 /* --- Eyebrow-led header: no billboard title --- */
 .create-pool-page > h2 {
   margin: 0 0 10px;
@@ -31,24 +40,11 @@
   color: var(--cream-faint);
 }
 
-/* Custom-asset controls + toggle: mono labels, hairline frames */
-.create-pool-page .custom-asset-grid label,
-.create-pool-page .custom-asset-toggle {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  color: var(--cream-mute);
-}
-
-.create-pool-page .custom-asset-grid input,
-.create-pool-page .custom-asset-grid select {
-  border: 1px solid var(--line-hair);
-  border-radius: var(--r-sm, 3px);
-  background: var(--surface-inset);
-  color: var(--cream);
-}
-
 /* Guardrails / duplicate notices read as quiet mono footnotes */
+.create-pool-page .create-guardrails {
+  margin-top: 10px;
+}
+
 .create-pool-page .empty-state.compact strong {
   font-family: var(--font-mono);
   font-size: 0.68rem;

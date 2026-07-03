@@ -24,6 +24,7 @@ type TokenSelectorProps = {
   disabledIds?: string[];
   showIdentifier?: boolean;
   hideLabel?: boolean;
+  onCreateCustomAsset?: (query: string) => void;
 };
 
 function readStoredIds(key: string): string[] {
@@ -51,7 +52,7 @@ function assetBalance(asset: TokenSelectorAsset, balances?: readonly WalletBalan
   return balances?.find((balance) => balance.denom === asset.id)?.amount;
 }
 
-export function TokenSelect({ assets, value, onChange, label, balances, disabledIds = [], showIdentifier = true, hideLabel = false }: TokenSelectorProps) {
+export function TokenSelect({ assets, value, onChange, label, balances, disabledIds = [], showIdentifier = true, hideLabel = false, onCreateCustomAsset }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>(() => readStoredIds(FAVORITES_STORAGE_KEY));
@@ -66,6 +67,7 @@ export function TokenSelect({ assets, value, onChange, label, balances, disabled
     if (isOpen) searchRef.current?.focus();
   }, [isOpen]);
 
+  const trimmedQuery = query.trim();
   const visibleAssets = useMemo(() => {
     const favoriteRank = new Map(favorites.map((id, index) => [id, index]));
     const recentRank = new Map(recents.map((id, index) => [id, index]));
@@ -79,6 +81,7 @@ export function TokenSelect({ assets, value, onChange, label, balances, disabled
         return a.symbol.localeCompare(b.symbol);
       });
   }, [assets, favorites, query, recents]);
+  const canCreateCustomAsset = Boolean(onCreateCustomAsset && trimmedQuery);
 
   const persistFavorite = (id: string) => {
     const next = favorites.includes(id) ? favorites.filter((favorite) => favorite !== id) : [id, ...favorites];
@@ -112,7 +115,12 @@ export function TokenSelect({ assets, value, onChange, label, balances, disabled
           <input ref={searchRef} className="token-search-input" aria-label="Search tokens" aria-describedby={helpId} aria-controls={resultsId} placeholder="Search symbol, name, denom, or address" value={query} onChange={(event) => setQuery(event.target.value)} />
           <div id={helpId} className="token-selector-help">Favorites are saved on this device. Unknown factory tokens are marked unverified.</div>
           <div id={resultsId} className="token-list" role="list" aria-label={`${label} token results`}>
-            {visibleAssets.length === 0 ? <p className="empty-token-results">No tokens match “{query}”.</p> : null}
+            {visibleAssets.length === 0 ? (
+              <div className="empty-token-results" role="listitem">
+                <p>No tokens match “{query}”.</p>
+                {canCreateCustomAsset ? <button type="button" onClick={() => onCreateCustomAsset?.(trimmedQuery)}>Use unverified asset</button> : null}
+              </div>
+            ) : null}
             {visibleAssets.map((asset) => {
               const balance = assetBalance(asset, balances);
               const isFavorite = favorites.includes(asset.id);

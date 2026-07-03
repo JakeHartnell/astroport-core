@@ -10,23 +10,20 @@ import { buildCreatePoolAssets, createPoolOptions, makeCustomAsset, poolMatchesA
 import { useCreatePoolTx } from "../../mutations/useCreatePoolTx";
 import { useDexRegistry } from "../../queries/useDexRegistry";
 import { useNetworkGuard, useWallet } from "../../wallet/WalletContext";
-import { EmptyState, ErrorState, RiskAcknowledgement, RiskBadgeList, Skeleton, TokenLogo } from "../common";
+import { EmptyState, ErrorState, RiskAcknowledgement, Skeleton } from "../common";
 import { TxStatusDialog } from "../tx/TxStatusDialog";
 import { TokenSelect } from "../swap/TokenSelect";
 
-type CustomAssetDraft = {
-  enabled: boolean;
-  side: "a" | "b";
-  kind: RegistryAsset["kind"];
-  id: string;
-  symbol: string;
-  decimals: number;
-};
-
-const defaultDraft: CustomAssetDraft = { enabled: false, side: "b", kind: "native", id: "", symbol: "", decimals: 6 };
+type AssetSide = "a" | "b";
 
 function feeLabel(feeBps?: number) {
   return typeof feeBps === "number" ? `${(feeBps / 100).toFixed(2)}% total fee` : "Factory default fee";
+}
+
+function inferCustomAssetKind(id: string): RegistryAsset["kind"] {
+  if (/^juno1[0-9a-z]+$/i.test(id)) return "cw20";
+  if (/^ibc\//i.test(id)) return "ibc";
+  return "native";
 }
 
 export function CreatePoolPage() {
@@ -37,33 +34,23 @@ export function CreatePoolPage() {
   const [poolType, setPoolType] = useState<CreatePoolType>("xyk");
   const [assetAId, setAssetAId] = useState("ujuno");
   const [assetBId, setAssetBId] = useState("");
-  const [draft, setDraft] = useState<CustomAssetDraft>(defaultDraft);
+  const [customAssets, setCustomAssets] = useState<Partial<Record<AssetSide, RegistryAsset>>>({});
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const configQuery = useQuery({ queryKey: ["factory-config", dexRegistry.factory], queryFn: queryFactoryConfig, staleTime: 5 * 60_000, retry: 2 });
   const options = useMemo(() => createPoolOptions(configQuery.data?.pair_configs), [configQuery.data?.pair_configs]);
   const selectedOption = options.find((option) => option.id === poolType) ?? options[0];
   const baseAssets = useMemo(() => buildCreatePoolAssets(pools), [pools]);
-  const customAsset = useMemo(() => {
-    if (!draft.enabled || !draft.id.trim()) return undefined;
-    return makeCustomAsset({ kind: draft.kind, id: draft.id, symbol: draft.symbol, decimals: draft.decimals });
-  }, [draft]);
   const selectableAssets = useMemo(() => {
-    if (!customAsset) return baseAssets;
-    const filtered = baseAssets.filter((asset) => asset.id !== customAsset.id);
-    return [customAsset, ...filtered];
-  }, [baseAssets, customAsset]);
+    const custom = [customAssets.a, customAssets.b].filter((asset): asset is RegistryAsset => Boolean(asset));
+    const customIds = new Set(custom.map((asset) => asset.id));
+    return [...custom, ...baseAssets.filter((asset) => !customIds.has(asset.id))];
+  }, [baseAssets, customAssets]);
 
   useEffect(() => {
     if (!assetBId) setAssetBId(selectableAssets.find((asset) => asset.id !== assetAId)?.id ?? "");
   }, [assetAId, assetBId, selectableAssets]);
 
-  useEffect(() => {
-    if (!customAsset) return;
-    if (draft.side === "a") setAssetAId(customAsset.id);
-    if (draft.side === "b") setAssetBId(customAsset.id);
-  }, [customAsset, draft.side]);
-
-  useEffect(() => setRiskAcknowledged(false), [assetAId, assetBId, poolType, customAsset?.id]);
+  useEffect(() => setRiskAcknowledged(false), [assetAId, assetBId, poolType]);
 
   const assetA = selectableAssets.find((asset) => asset.id === assetAId);
   const assetB = selectableAssets.find((asset) => asset.id === assetBId && asset.id !== assetAId);
@@ -97,6 +84,15 @@ export function CreatePoolPage() {
         ? "Creating pool…"
         : validation.error ?? "Create pool";
 
+  const handleCreateCustomAsset = (side: AssetSide, query: string) => {
+    const id = query.trim();
+    if (!id) return;
+    const asset = makeCustomAsset({ kind: inferCustomAssetKind(id), id });
+    setCustomAssets((current) => ({ ...current, [side]: asset }));
+    if (side === "a") setAssetAId(asset.id);
+    else setAssetBId(asset.id);
+  };
+
   const handleCreate = () => {
     if (submitDisabled || !selectedAssets || !selectedOption) return;
     createPoolTx.mutate({ assets: selectedAssets, option: selectedOption }, {
@@ -120,28 +116,9 @@ export function CreatePoolPage() {
           </Box>
         </Stack>
         <Stack className="form-grid" direction="horizontal" align="flex-end">
-          <TokenSelect assets={selectableAssets} value={assetA?.id ?? ""} onChange={setAssetAId} label="First asset" disabledIds={assetB ? [assetB.id] : []} />
-          <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== assetA?.id)} value={assetB?.id ?? ""} onChange={setAssetBId} label="Second asset" />
+          <TokenSelect assets={selectableAssets} value={assetA?.id ?? ""} onChange={setAssetAId} label="First asset" disabledIds={assetB ? [assetB.id] : []} onCreateCustomAsset={(query) => handleCreateCustomAsset("a", query)} />
+          <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== assetA?.id)} value={assetB?.id ?? ""} onChange={setAssetBId} label="Second asset" onCreateCustomAsset={(query) => handleCreateCustomAsset("b", query)} />
         </Stack>
-        {selectedAssets ? (
-          <div className="pool-assets create-pool-assets">
-            {selectedAssets.map((asset) => <div key={asset.id}><span><TokenLogo asset={asset} size="sm" /> <strong>{asset.symbol}</strong> <RiskBadgeList assessment={validation.risk} max={3} /></span><details className="identifier-disclosure"><summary>Asset ID</summary><code>{asset.id}</code></details></div>)}
-          </div>
-        ) : null}
-
-        <fieldset className="custom-asset-box create-custom-asset-box">
-          <legend>Arbitrary denom / CW20</legend>
-          <label className="risk-acknowledgement custom-asset-toggle"><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /> Add a custom unverified asset</label>
-          {draft.enabled ? (
-            <div className="pool-list-controls custom-asset-grid">
-              <label>Side<select value={draft.side} onChange={(event) => setDraft((current) => ({ ...current, side: event.target.value as CustomAssetDraft["side"] }))}><option value="a">First asset</option><option value="b">Second asset</option></select></label>
-              <label>Kind<select value={draft.kind} onChange={(event) => setDraft((current) => ({ ...current, kind: event.target.value as RegistryAsset["kind"] }))}><option value="native">Native / TokenFactory</option><option value="ibc">IBC</option><option value="cw20">CW20</option></select></label>
-              <label>Denom or contract<input value={draft.id} onChange={(event) => setDraft((current) => ({ ...current, id: event.target.value }))} placeholder="factory/... or juno1..." /></label>
-              <label>Symbol<input value={draft.symbol} onChange={(event) => setDraft((current) => ({ ...current, symbol: event.target.value }))} placeholder="Auto if blank" /></label>
-              <label>Decimals<input type="number" min="0" max="18" value={draft.decimals} onChange={(event) => setDraft((current) => ({ ...current, decimals: Number(event.target.value) }))} /></label>
-            </div>
-          ) : null}
-        </fieldset>
 
         <Box>
           <Text as="p" className="eyebrow">2 · Pool type</Text>
@@ -165,7 +142,7 @@ export function CreatePoolPage() {
 
         {localDuplicate ? <div className="empty-state"><strong>Existing pool detected.</strong> <a href={`/pools/${localDuplicate.pair}`}>Open {localDuplicate.label}</a> instead of creating a duplicate.</div> : null}
         {duplicateQuery.isFetching ? <p>Checking factory for an existing pair…</p> : null}
-        <div className="empty-state compact"><strong>Guardrails</strong><ul>{validation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>
+        <div className="empty-state compact create-guardrails"><strong>Guardrails</strong><ul>{validation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>
         <RiskAcknowledgement assessment={validation.risk} checked={riskAcknowledged} onChange={setRiskAcknowledged} action="pool creation" />
         {network.isWrongNetwork ? <Text as="p" className="error-text">Transactions are blocked while your wallet is off Juno mainnet.</Text> : null}
         {validation.error && wallet.status === "connected" && !network.isWrongNetwork ? <Text as="p" className="error-text">{validation.error}</Text> : null}

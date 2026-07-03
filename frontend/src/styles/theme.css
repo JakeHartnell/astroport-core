@@ -1713,6 +1713,35 @@ button:disabled { cursor: not-allowed; opacity: 0.48; box-shadow: none; }
   overflow: auto;
   padding-right: 4px;
 }
+.empty-token-results {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line-hair);
+  border-radius: var(--r-sm, 3px);
+  background: var(--surface-inset);
+}
+.empty-token-results p {
+  margin: 0;
+}
+.empty-token-results button {
+  width: fit-content;
+  border: 1px solid var(--coral);
+  border-radius: var(--r-sm, 3px);
+  padding: 8px 12px;
+  background: var(--coral);
+  color: var(--maroon-deep);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.empty-token-results button:hover {
+  background: var(--coral-bright);
+}
 .token-row {
   display: grid;
   grid-template-columns: auto 1fr;

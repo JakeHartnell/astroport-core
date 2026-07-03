@@ -74,4 +74,15 @@ describe("TokenSelect", () => {
     expect(screen.getByText("2.5")).toBeTruthy();
     expect(screen.getAllByText(/unverified/i).length).toBeGreaterThan(0);
   });
+
+  it("offers a custom asset action for unknown search terms when enabled", () => {
+    const onCreateCustomAsset = vi.fn();
+    render(<TokenSelect assets={assets} value="ujuno" onChange={vi.fn()} onCreateCustomAsset={onCreateCustomAsset} label="Asset" balances={balances} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /juno/i }));
+    fireEvent.change(screen.getByLabelText(/search tokens/i), { target: { value: "factory/juno1issuer/custom" } });
+    fireEvent.click(screen.getByRole("button", { name: /use unverified asset/i }));
+
+    expect(onCreateCustomAsset).toHaveBeenCalledWith("factory/juno1issuer/custom");
+  });
 });
