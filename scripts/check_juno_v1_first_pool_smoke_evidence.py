@@ -39,6 +39,12 @@ SETS = [
     "pair_create_msg_template.asset_infos.1.native_token.denom=ibc/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
 ]
 PAIR = "juno1pair0000000000000000000000000000000000"
+TXHASHES = {
+    "create-pair": "A" * 64,
+    "provide-liquidity": "B" * 64,
+    "tiny-swap": "C" * 64,
+    "router-tiny-swap": "D" * 64,
+}
 
 
 def fail(message: str) -> NoReturn:
@@ -61,13 +67,13 @@ def write_json(path: pathlib.Path, data: Any) -> None:
 
 def write_fixture_set(directory: pathlib.Path, *, prefix: str = "first-pool-smoke") -> None:
     directory.mkdir(parents=True, exist_ok=True)
-    for suffix, txhash, height in (
-        ("create-pair", "CREATEPAIR123", "12345"),
-        ("provide-liquidity", "PROVIDE12345", "12346"),
-        ("tiny-swap", "TINYSWAP123", "12347"),
-        ("router-tiny-swap", "ROUTERSWAP1", "12348"),
+    for suffix, height in (
+        ("create-pair", "12345"),
+        ("provide-liquidity", "12346"),
+        ("tiny-swap", "12347"),
+        ("router-tiny-swap", "12348"),
     ):
-        write_json(directory / f"{prefix}-{suffix}.json", {"height": height, "txhash": txhash, "code": 0, "raw_log": "[]"})
+        write_json(directory / f"{prefix}-{suffix}.json", {"height": height, "txhash": TXHASHES[suffix], "code": 0, "raw_log": "[]"})
     write_json(directory / f"{prefix}-pair-lookup.json", {"data": {"contract_addr": PAIR}})
     pool = {
         "data": {
@@ -175,11 +181,21 @@ def main() -> None:
         if "permissioned=true" not in open_proc.stderr:
             fail(f"open factory gate error was not explicit: {open_proc.stderr!r}")
 
+        invalid_txhash = tmp / "invalid-txhash"
+        write_fixture_set(invalid_txhash)
+        invalid_txhash_path = invalid_txhash / "first-pool-smoke-tiny-swap.json"
+        invalid = json.loads(invalid_txhash_path.read_text())
+        invalid["txhash"] = "not-a-real-junod-txhash"
+        write_json(invalid_txhash_path, invalid)
+        invalid_txhash_proc = run_validator(invalid_txhash, config, expect_ok=False)
+        if "64-character hex" not in invalid_txhash_proc.stderr:
+            fail(f"invalid txhash error was not explicit: {invalid_txhash_proc.stderr!r}")
+
         duplicate_tx = tmp / "duplicate-tx"
         write_fixture_set(duplicate_tx)
         duplicate_path = duplicate_tx / "first-pool-smoke-router-tiny-swap.json"
         duplicate = json.loads(duplicate_path.read_text())
-        duplicate["txhash"] = "TINYSWAP123"
+        duplicate["txhash"] = TXHASHES["tiny-swap"]
         write_json(duplicate_path, duplicate)
         duplicate_proc = run_validator(duplicate_tx, config, expect_ok=False)
         if "distinct txhashes" not in duplicate_proc.stderr:
@@ -226,7 +242,7 @@ def main() -> None:
             fail(f"operator docs missing first-pool evidence validator text: {needle}")
 
     print("OK: Juno v1 first-pool smoke evidence validator accepts complete fixtures and rejects unsafe evidence")
-    print("first_pool_smoke_evidence_validator=true tx_files=4 query_files=5 failure_cases=8 txhash_uniqueness=true tx_height_order=true denom_match=true post_swap_pool_delta=true")
+    print("first_pool_smoke_evidence_validator=true tx_files=4 query_files=5 failure_cases=9 txhash_hex=true txhash_uniqueness=true tx_height_order=true denom_match=true post_swap_pool_delta=true")
 
 
 if __name__ == "__main__":

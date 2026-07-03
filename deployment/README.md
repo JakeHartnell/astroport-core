@@ -132,9 +132,9 @@ saves suggested tx outputs and query evidence under
 `first-pool-smoke-pool-after-swaps.json`. Do not run the open-XYK helper until
 these pass and the pool query confirms non-zero liquidity. The offline validator
 also rejects reused tx hashes, failed tx codes, pool evidence for denoms outside
-`pair_create_msg_template`, unchanged post-swap pool state, and out-of-order tx
-heights across create pair → provide liquidity → direct tiny swap → router tiny
-swap.
+`pair_create_msg_template`, non-64-character-hex tx hashes, unchanged post-swap
+pool state, and out-of-order tx heights across create pair → provide liquidity →
+direct tiny swap → router tiny swap.
 
 Once those nine JSON files are saved, validate them offline before opening
 public pair creation:

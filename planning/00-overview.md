@@ -114,6 +114,7 @@ Three diffs to the AI audit; one mechanical (A), two functional (B, C). See
 | `45-first-pool-smoke-evidence-strictness-2026-07-03.md` | Validator strictness for distinct first-pool smoke tx hashes and post-swap pool-query delta. |
 | `46-first-pool-smoke-evidence-order-2026-07-03.md` | Validator strictness for tx-height launch ordering across first-pool smoke broadcasts. |
 | `47-first-pool-smoke-denom-match-2026-07-03.md` | Validator strictness that ties saved first-pool pool-query evidence to the rendered first-pool denoms. |
+| `48-first-pool-smoke-txhash-format-2026-07-03.md` | Validator strictness requiring real 64-character hex tx hashes in saved first-pool smoke tx evidence. |
 
 Files marked "(P*)" are stubs until that phase begins.
 

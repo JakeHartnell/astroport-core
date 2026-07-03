@@ -12,11 +12,13 @@ from __future__ import annotations
 import argparse
 import json
 import pathlib
+import re
 import sys
 from typing import Any, NoReturn
 
 DEFAULT_DIR = pathlib.Path("deployment/tx/uni-7")
 DEFAULT_PREFIX = "first-pool-smoke"
+TXHASH_RE = re.compile(r"^[0-9A-Fa-f]{64}$")
 TX_SUFFIXES = (
     "create-pair",
     "provide-liquidity",
@@ -87,10 +89,10 @@ def validate_tx(path: pathlib.Path) -> tuple[str, int]:
         raw_log = data.get("raw_log") or data.get("rawLog") or data.get("log")
         fail(f"tx evidence failed with code={code} in {path}: {raw_log!r}")
     txhash = data.get("txhash") or data.get("tx_hash") or data.get("transactionHash")
-    if not isinstance(txhash, str) or len(txhash.strip()) < 8:
-        fail(f"tx evidence missing txhash: {path}")
+    if not isinstance(txhash, str) or not TXHASH_RE.fullmatch(txhash.strip()):
+        fail(f"tx evidence txhash must be a 64-character hex string: {path}")
     height = positive_int_field(data, "height", label=f"tx height in {path}")
-    return txhash.strip(), height
+    return txhash.strip().upper(), height
 
 
 def extract_pair_address(data: dict[str, Any]) -> str:
