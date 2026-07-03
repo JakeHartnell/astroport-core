@@ -73,10 +73,12 @@ npm run migrate
 npm run dev
 ```
 
-Backfill candles from already-ingested swaps after migrations have run:
+Run a bounded staging backfill from `START_HEIGHT` through a known smoke-test height, verify the cursor reached that height, then rebuild candles from ingested swaps:
 
 ```bash
 cd services/indexer
+npm run backfill:range -- --to-height=39381355
+psql "$DATABASE_URL" -c "select id, last_height from indexer_cursors where id = 'astroport-juno-v1' and last_height >= 39381355;"
 npm run backfill:candles -- --pair=juno1... --from=2026-07-01T00:00:00Z --to=2026-07-02T00:00:00Z --limit=10000
 ```
 
