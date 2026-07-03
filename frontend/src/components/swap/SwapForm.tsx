@@ -52,10 +52,9 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
   const [amount, setAmount] = useState("1");
   const [askAmount, setAskAmount] = useState("");
   const [quoteMode, setQuoteMode] = useState<SwapQuoteMode>("exact-in");
-  const [highImpactConfirmed, setHighImpactConfirmed] = useState(false);
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { slippageBps, formattedSlippagePercent, maxSpread } = useSlippageSettings();
+  const { slippageBps, formattedSlippagePercent, maxSpread, setSlippageBps } = useSlippageSettings();
   const offerAsset = selectableAssets.find((asset) => asset.id === offerId) ?? pool.assets[0];
   const askAsset = selectableAssets.find((asset) => asset.id === askId && asset.id !== offerAsset.id) ?? selectableAssets.find((asset) => asset.id !== offerAsset.id) ?? pool.assets[1];
   const parsedOfferInput = parseTokenAmount(amount, offerAsset.decimals);
@@ -74,11 +73,9 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
   const exceedsBalance = Boolean(offerBalance && isPositiveBaseAmount(requiredOfferBaseAmount) && isBaseAmountGreaterThan(requiredOfferBaseAmount, offerBalance));
   const quoteReady = quote.isSuccess && Boolean(quote.data) && !quote.isFetching && !quote.isError && !quote.isDebouncing;
   const priceImpact = quote.data && quote.data.source === "pair" ? getPriceImpact({ spreadAmount: quote.data.spread_amount, returnAmount: quote.data.return_amount }) : null;
-  const requiresHighImpactConfirm = priceImpact?.severity === "high";
   const selectedRoute = quote.data?.route;
   const routeRisk = assessRouteRisk(selectedRoute);
   const minimumReceive = quote.data ? calculateMinimumReceived(quote.data.return_amount, slippageBps) : "0";
-  useEffect(() => setHighImpactConfirmed(false), [quoteInputBaseAmount, quoteMode, offerAsset.id, askAsset.id, quote.data?.return_amount, quote.data?.spread_amount]);
   useEffect(() => setRiskAcknowledged(false), [quoteInputBaseAmount, quoteMode, offerAsset.id, askAsset.id, selectedRoute?.id]);
 
   const validationError = !activeParsedAmount.isValid
@@ -97,11 +94,9 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
                 ? "Refreshing route…"
                 : !selectedRoute
                   ? "No route found"
-                  : requiresHighImpactConfirm && !highImpactConfirmed
-                    ? "Confirm high price impact"
-                    : routeRisk.requiresAcknowledgement && !riskAcknowledged
-                      ? "Acknowledge unverified route"
-                      : undefined;
+                  : routeRisk.requiresAcknowledgement && !riskAcknowledged
+                    ? "Acknowledge unverified route"
+                    : undefined;
   const submitDisabled = wallet.status !== "connected"
     || !network.isJunoReady
     || network.isWrongNetwork
@@ -180,7 +175,7 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
         <Stack className="asset-amount-card" direction="vertical" space="4">
           <Stack className="form-grid" direction="horizontal" align="flex-end">
             <TokenAmountInput
-              label="You pay"
+              label="You send"
               value={quoteMode === "exact-out" && quote.data ? formatAmount(quote.data.offer_amount, offerAsset.decimals) : amount}
               decimals={offerAsset.decimals}
               symbol={offerAsset.symbol}
@@ -193,7 +188,14 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
             <TokenSelect assets={selectableAssets} value={offerId} onChange={handleOfferChange} label="From asset" balances={balances.data} showIdentifier={false} hideLabel />
           </Stack>
         </Stack>
-        <Button variant="outlined" intent="secondary" size="sm" className="swap-direction" onClick={handleFlip} domAttributes={{ type: "button", title: "Flip swap direction" }}>↓</Button>
+        <button type="button" className="swap-direction" onClick={handleFlip} title="Flip swap direction" aria-label="Flip swap direction">
+          <svg className="swap-direction-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="m3 16 4 4 4-4" />
+            <path d="M7 20V4" />
+            <path d="m21 8-4-4-4 4" />
+            <path d="M17 4v16" />
+          </svg>
+        </button>
         <Stack className="asset-amount-card receive-card" direction="vertical" space="4">
           <Stack className="form-grid" direction="horizontal" align="flex-end">
             <TokenAmountInput
@@ -209,15 +211,9 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
           </Stack>
         </Stack>
       </div>
-      <QuoteCard quote={quote.data} askAsset={askAsset} offerAsset={offerAsset} isLoading={quote.isFetching || quote.isDebouncing} error={quote.error} slippageBps={slippageBps} updatedAt={quote.quoteUpdatedAt} />
+      <QuoteCard quote={quote.data} askAsset={askAsset} offerAsset={offerAsset} isLoading={quote.isFetching || quote.isDebouncing} error={quote.error} slippageBps={slippageBps} updatedAt={quote.quoteUpdatedAt} onSlippageBps={setSlippageBps} />
       {priceImpact?.severity === "warning" ? (
         <div className="price-impact-warning" role="status">Price impact is elevated at {formatBpsPercent(priceImpact.bps)}. Review size and pool liquidity before swapping.</div>
-      ) : null}
-      {requiresHighImpactConfirm ? (
-        <label className="price-impact-warning price-impact-danger">
-          <input type="checkbox" checked={highImpactConfirmed} onChange={(event) => setHighImpactConfirmed(event.target.checked)} />
-          I understand this quote has high price impact ({formatBpsPercent(priceImpact.bps)}).
-        </label>
       ) : null}
       <RiskAcknowledgement assessment={routeRisk} checked={riskAcknowledged} onChange={setRiskAcknowledged} action="swap route" />
       {network.isWrongNetwork ? <Text as="p" className="error-text">Transactions are blocked while your wallet is off Juno mainnet.</Text> : null}

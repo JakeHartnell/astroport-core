@@ -186,6 +186,18 @@ export const junoCssVars = {
   "--juno-space-xl": junoTokens.space.xl,
   "--juno-shadow-panel": junoTokens.shadow.panel,
   "--juno-shadow-glow": junoTokens.shadow.glow,
+  // Short-name aliases consumed by styles/theme.css. Without these the
+  // referenced shadow/glow/radius tokens resolve to nothing and cards
+  // render flat (no elevation). Sharp radii per the "diagrammatic, not
+  // friendly-rounded" rule.
+  "--r-sm": junoTokens.radius.sm,
+  "--r-md": junoTokens.radius.md,
+  "--r-lg": junoTokens.radius.lg,
+  "--r-pill": junoTokens.radius.pill,
+  "--shadow-card": "0 1px 0 rgba(255,235,210,0.03), 0 18px 40px rgba(0,0,0,0.55)",
+  "--shadow-pop": "0 24px 60px rgba(0,0,0,0.62)",
+  "--glow-soft": "0 0 16px rgba(255,123,124,0.22)",
+  "--glow-coral": "0 0 0 1px rgba(255,123,124,0.35), 0 0 22px rgba(255,123,124,0.30)",
   "--juno-font-body": junoTokens.typography.fontFamily,
   "--font-display": junoTokens.typography.fontFamily,
   "--font-body": junoTokens.typography.fontFamily,

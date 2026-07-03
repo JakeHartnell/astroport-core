@@ -10,6 +10,12 @@ import { interchainThemeProps, junoCssVars } from "./theme/junoTheme";
 import { CosmosKitProvider } from "./wallet/CosmosKitProvider";
 import "@interchain-ui/react/styles";
 import "./styles/theme.css";
+import "./styles/surfaces/swap.css";
+import "./styles/surfaces/pools.css";
+import "./styles/surfaces/stats.css";
+import "./styles/surfaces/portfolio.css";
+import "./styles/surfaces/create.css";
+import "./styles/surfaces/liquidity.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {

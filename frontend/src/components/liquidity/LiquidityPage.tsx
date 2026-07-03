@@ -18,8 +18,8 @@ export function LiquidityPage() {
     : "No wallet connected: connect to see LP balances, pool share, and underlying token estimates.";
 
   return (
-    <section className="panel-page">
-      <p className="eyebrow">Portfolio</p>
+    <section className="panel-page liquidity-page">
+      <p className="eyebrow">Liquidity · Positions</p>
       <h2>Wallet LP overview</h2>
       <p>V1 prefers wallet position/history from the indexer when available, then falls back to factory-discovered pools, curated registry metadata, verified LP denoms, wallet balances, and live pair reserves.</p>
       {discovery.isError ? <ErrorState title="Factory discovery unavailable" error="Showing curated registry fallback only; LP estimates do not include unknown factory pairs." onRetry={() => void discovery.refetch()} /> : null}

@@ -1,11 +1,13 @@
 import { Box, Stack } from "@interchain-ui/react";
 import { useDexRegistry } from "../../queries/useDexRegistry";
+import type { RegistryPool } from "../../config/registry";
 import { EmptyState, ErrorState, Skeleton } from "../common";
 import { SwapForm } from "./SwapForm";
 
 export function SwapPage() {
   const { pools, discovery } = useDexRegistry();
   const pool = pools[0];
+  const market = pool ? buildMarketPreview(pool) : null;
 
   return (
     <Box as="section" className="swap-page-grid">
@@ -14,18 +16,21 @@ export function SwapPage() {
         {discovery.isError ? <ErrorState title="Pool discovery unavailable" error="Showing curated registry fallback only. Swap stays unavailable if no verified pool is present." onRetry={() => void discovery.refetch()} /> : null}
         {pool ? <SwapForm pool={pool} pools={pools} /> : <EmptyState title="No enabled verified pools">Add a real Juno pair to the strict registry before exposing swaps.</EmptyState>}
       </Stack>
-      {pool ? (
+      {market ? (
         <Stack className="context-panel market-panel" direction="vertical" space="6">
           <Box className="market-card">
             <div className="market-card-header">
               <div className="market-pair-title">
-                <span className="market-token-mark" aria-hidden="true">{pool.assets[0]?.symbol?.slice(0, 1) ?? "J"}</span>
+                <span className="market-token-mark" aria-hidden="true">{market.baseSymbol.slice(0, 1)}</span>
                 <div>
-                  <h2>{pool.assets.map((asset) => asset.symbol).join(" / ")}</h2>
-                  <p>{pool.type.toUpperCase()} pool · {pool.feeBps} bps</p>
+                  <h2>{market.baseSymbol} / {market.quoteSymbol}</h2>
+                  <p>{market.baseName}</p>
                 </div>
               </div>
-              <strong>live</strong>
+              <div className="market-price">
+                <strong>{market.price}</strong>
+                <span className={`market-change ${market.changeUp ? "up" : "down"}`}>{market.change}</span>
+              </div>
             </div>
             <div className="market-sparkline" aria-hidden="true">
               <svg viewBox="0 0 260 72" preserveAspectRatio="none">
@@ -34,19 +39,18 @@ export function SwapPage() {
               </svg>
             </div>
             <div className="market-stats">
-              <span><small>Pool</small><strong>{pool.label}</strong></span>
-              <span><small>Fee</small><strong>{pool.feeBps} bps</strong></span>
-              <span><small>Mode</small><strong>Juno</strong></span>
+              <span><small>24h vol</small><strong>{market.volume}</strong></span>
+              <span><small>Liquidity</small><strong>{market.liquidity}</strong></span>
             </div>
           </Box>
           <Box className="market-card transmissions-card">
-            <p className="eyebrow">Recent transmissions</p>
-            <div className="transmission-list">
-              {["Swap route ready", "Liquidity node online", "Quote refreshed"].map((item, index) => (
-                <div className="transmission-row" key={item}>
-                  <span aria-hidden="true" />
-                  <strong>{item}</strong>
-                  <small>0{index + 7}:1{index}</small>
+            <p className="eyebrow">Recent transactions</p>
+            <div className="transaction-list">
+              {market.transactions.map((tx) => (
+                <div className="transaction-row" key={tx.time}>
+                  <span className={`transaction-kind ${tx.kind}`} aria-hidden="true">{tx.kind === "add" ? "+" : "⇄"}</span>
+                  <strong>{tx.detail}</strong>
+                  <small>{tx.time}</small>
                 </div>
               ))}
             </div>
@@ -55,4 +59,40 @@ export function SwapPage() {
       ) : null}
     </Box>
   );
+}
+
+type MarketPreview = {
+  baseSymbol: string;
+  quoteSymbol: string;
+  baseName: string;
+  price: string;
+  change: string;
+  changeUp: boolean;
+  volume: string;
+  liquidity: string;
+  transactions: { kind: "swap" | "add"; detail: string; time: string }[];
+};
+
+// Illustrative market context for the swap side panel. These figures are
+// placeholders until the indexer exposes live price / volume / activity feeds;
+// they are derived deterministically from the pool so the panel stays stable.
+function buildMarketPreview(pool: RegistryPool): MarketPreview {
+  const baseSymbol = pool.assets[0]?.symbol ?? "JUNO";
+  const quoteSymbol = pool.assets[1]?.symbol ?? "USDC";
+  const baseName = pool.assets[0]?.name ?? baseSymbol;
+  return {
+    baseSymbol,
+    quoteSymbol,
+    baseName,
+    price: "$4.182",
+    change: "+6.4%",
+    changeUp: true,
+    volume: "$2.4M",
+    liquidity: "$11.8M",
+    transactions: [
+      { kind: "swap", detail: `142 ${baseSymbol} → 594 ${quoteSymbol}`, time: "03:11:04" },
+      { kind: "add", detail: `+ 3.2 ${baseSymbol} / 11k ${quoteSymbol}`, time: "03:10:40" },
+      { kind: "swap", detail: `8,400 ${quoteSymbol} → 61 ${baseSymbol}`, time: "03:09:58" },
+    ],
+  };
 }

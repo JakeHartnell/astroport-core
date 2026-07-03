@@ -1,0 +1,157 @@
+/* Surface overrides: swap. Cascades after theme.css — scoped, page-specific rules only. */
+
+/* ── Field eyebrow labels (YOU SEND / YOU RECEIVE) + balance line ── */
+/* Mockup structure: the label + `bal …` sit on one full-width strip at the
+   top of the box, and the amount + token selector share the row below. The
+   topline is lifted out of the input column and pinned across the whole box
+   so the token pill can never crowd up against the balance. */
+.swap-page-grid .swap-card .asset-amount-card {
+  position: relative;
+  padding-top: 38px;
+}
+.swap-page-grid .swap-card .asset-amount-card .form-grid { align-items: center; }
+.swap-page-grid .swap-card .token-amount-topline {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  right: 16px;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.swap-page-grid .swap-card .token-amount-topline > span:first-child {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+}
+.swap-page-grid .swap-card .token-balance {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  color: var(--cream-faint);
+}
+
+/* Big amount + optional USD subvalue */
+.swap-page-grid .swap-card .asset-amount-card .token-amount-row input {
+  font-size: clamp(1.6rem, 5vw, 2rem);
+  letter-spacing: -0.02em;
+}
+.swap-page-grid .swap-card .asset-amount-card .token-amount-actions {
+  justify-content: flex-start;
+}
+.swap-page-grid .swap-card .fiat-hint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--cream-faint);
+}
+
+/* ── Flip button seated on the seam between the cards ─────────────── */
+.swap-page-grid .swap-card .swap-amount-stack { position: relative; }
+.swap-page-grid .swap-card .swap-direction {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 2;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  border: 1px solid var(--coral-a35) !important;
+  border-radius: var(--r-sm, 3px) !important;
+  background: var(--maroon) !important;
+  color: var(--coral) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer;
+  transition: border-color 120ms var(--ease-mech), background 120ms var(--ease-mech), color 120ms var(--ease-mech);
+}
+.swap-page-grid .swap-card .swap-direction:hover {
+  border-color: var(--coral) !important;
+  background: var(--coral-a08) !important;
+  color: var(--coral-bright) !important;
+}
+.swap-page-grid .swap-card .swap-direction-icon {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+
+/* ── Inline quote rows (Rate / Route / Price impact / Max slippage) ── */
+.swap-page-grid .swap-card .quote-rows {
+  display: grid;
+  gap: 10px;
+  margin: 14px 2px 2px;
+  font-family: var(--font-mono);
+}
+.swap-page-grid .swap-card .quote-rows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.swap-page-grid .swap-card .quote-rows dt {
+  color: var(--cream-mute);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+.swap-page-grid .swap-card .quote-row-value {
+  min-width: 0;
+  text-align: right;
+  color: var(--cream);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+  background: transparent;
+}
+.swap-page-grid .swap-card .quote-row-value.route-value { color: var(--coral); }
+.swap-page-grid .swap-card .quote-row-value.status-ok { color: var(--signal-ok); background: transparent; }
+.swap-page-grid .swap-card .quote-row-value.status-warn { color: var(--signal-warn); background: transparent; }
+.swap-page-grid .swap-card .quote-row-value.status-danger { color: var(--coral-bright); background: transparent; }
+
+/* Expandable extra detail sits below the primary rows */
+.swap-page-grid .swap-card .quote-card .quote-toggle { margin-top: 12px; }
+.swap-page-grid .swap-card .quote-details { margin-top: 10px; }
+
+/* ── Slippage preset chips ───────────────────────────────────────── */
+.swap-page-grid .swap-card .slippage-chips {
+  display: inline-flex;
+  gap: 6px;
+}
+.swap-page-grid .swap-card .slippage-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r-sm, 3px);
+  background: transparent;
+  color: var(--cream-mute);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 120ms var(--ease-mech), color 120ms var(--ease-mech), background 120ms var(--ease-mech);
+}
+.swap-page-grid .swap-card .slippage-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--cream);
+}
+.swap-page-grid .swap-card .slippage-chip.active {
+  border-color: var(--coral);
+  color: var(--coral);
+  background: var(--coral-a12);
+}

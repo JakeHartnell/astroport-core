@@ -52,7 +52,7 @@ export function TokenAmountInput({
     <section className={`token-amount-input${error ? " has-error" : ""}`} aria-label={label}>
       <div className="token-amount-topline">
         <span>{label}</span>
-        <span className="token-balance">Balance: {balanceCopy}</span>
+        <span className="token-balance"><span className="token-balance-label">bal</span> {balanceCopy}</span>
       </div>
       <div className={`token-amount-row${showTokenIdentity ? "" : " token-amount-row-compact"}`}>
         {showTokenIdentity ? (

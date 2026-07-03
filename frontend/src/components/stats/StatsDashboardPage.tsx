@@ -15,17 +15,18 @@ export function StatsDashboardView({ data, access, isLoading = false }: { data: 
   const unavailableCopy = dashboardUnavailableCopy(access);
   return (
     <section className="stats-dashboard-page" aria-labelledby="stats-dashboard-title">
-      <div className="hero-panel stats-hero">
-        <p className="eyebrow">Protocol overview</p>
-        <h2 id="stats-dashboard-title">Juno DEX stats</h2>
-        <p>Track Juno DEX TVL, volume, fees, and top pools. When analytics are missing, the dashboard keeps routing users to Swap and Pools.</p>
+      <header className="stats-hero">
+        <div className="stats-hero-copy">
+          <p className="eyebrow">Protocol overview</p>
+          <h2 id="stats-dashboard-title">Juno DEX stats</h2>
+        </div>
         <div className="hero-actions">
           <Link className="primary-link" to="/swap">Go to Swap</Link>
           <Link className="secondary-link" to="/pools">Browse pools</Link>
         </div>
-      </div>
+      </header>
 
-      {unavailableCopy ? <div className="empty-state stats-unavailable" role="status">{unavailableCopy}</div> : null}
+      {unavailableCopy ? <p className="stats-notice" role="status">{unavailableCopy}</p> : null}
 
       <div className="stats-metric-grid" aria-label="Protocol metrics">
         <ProtocolMetric label="Total TVL" value={formatUsdCompact(stats?.tvlUsd)} isLoading={isLoading && !stats} />
