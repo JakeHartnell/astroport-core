@@ -42,6 +42,7 @@ export type IndexerPoolMetrics = {
   volume24hUsd: number | null;
   volume24hJuno?: number | null;
   volume7dUsd: number | null;
+  volume7dJuno?: number | null;
   feeBps: number | null;
   fees24hUsd: number | null;
   fees24hJuno?: number | null;
@@ -122,12 +123,13 @@ export type IndexerWalletTransaction = {
 
 export type IndexerProtocolStats = {
   poolCount: number;
-  tvlUsd: number;
+  tvlUsd: number | null;
   tvlJuno?: number | null;
-  volume24hUsd: number;
+  volume24hUsd: number | null;
   volume24hJuno?: number | null;
-  volume7dUsd: number;
-  fees24hUsd: number;
+  volume7dUsd: number | null;
+  volume7dJuno?: number | null;
+  fees24hUsd: number | null;
   fees24hJuno?: number | null;
   incentivizedPools: number;
   updatedAt: string;

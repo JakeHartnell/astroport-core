@@ -6,7 +6,7 @@ import { Indexer } from "./indexer.js";
 
 const config = loadConfig();
 const pool = createPool(config);
-const api = createIndexerApi(new PostgresApiStore(pool, config.chainId, config.cursorId));
+const api = createIndexerApi(new PostgresApiStore(pool, config.chainId, config.cursorId, { rpcUrl: config.rpcUrl, expectedMigrationCount: 3 }));
 const indexer = new Indexer(config, pool);
 
 await new Promise<void>((resolve) => api.listen(config.apiPort, resolve));

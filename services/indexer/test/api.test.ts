@@ -12,14 +12,14 @@ class FakeDb {
     if (text === "SELECT 1") return { rows: [{ "?column?": 1 }] };
     if (text.includes("FROM schema_migrations")) return { rows: [{ count: 3 }] };
     if (text.includes("FROM indexer_cursors")) return { rows: [{ last_height: "42", updated_at: "2026-07-03T00:00:00.000Z" }] };
-    if (text.includes("count(*)::int AS pool_count")) return { rows: [{ pool_count: 1, updated_at: "2026-07-03T00:00:00.000Z" }] };
+    if (text.includes("pool_count") && text.includes("latest_pool_states")) return { rows: [{ pool_count: 1, incentivized_pools: 1, updated_at: "2026-07-03T00:00:00.000Z", tvl_usd: null, tvl_juno: "1000", volume_24h_usd: null, volume_24h_juno: "25", volume_7d_usd: null, volume_7d_juno: "100", fees_24h_usd: null, fees_24h_juno: "0.3" }] };
     if (text.includes("FROM token_prices")) return { rows: [{ asset: "ujuno", price_usd: null, price_juno: "1", source: "pool", status: "fresh", observed_at: "2026-07-03T00:00:00.000Z" }] };
     if (text.includes("FROM pools p") && text.includes("LIMIT 1")) {
       return { rows: [poolRow()] };
     }
     if (text.includes("FROM pools p")) return { rows: [poolRow()] };
     if (text.includes("FROM token_candles")) {
-      return { rows: [{ pool_id: "pool-1", pair_address: "juno1pair", asset: "ujuno", quote_asset: "uusdc", interval: "1h", bucket_start: "2026-07-03T00:00:00.000Z", open: "1", high: "1.2", low: "0.9", close: "1.1", volume: "10", volume_usd: "11", trade_count: 2 }] };
+      return { rows: [{ pool_id: "pool-1", pair_address: "juno1pair", asset: "ujuno", quote_asset: "uusdc", interval: "1h", bucket_start: "2026-07-03T00:00:00.000Z", open: "1", high: "1.2", low: "0.9", close: "1.1", volume: "10", volume_quote: "11", trade_count: 2 }] };
     }
     if (text.includes("FROM positions")) return { rows: [] };
     if (text.includes("FROM liquidity_events")) return { rows: [] };
@@ -63,9 +63,9 @@ describe("production API", () => {
     const health = await (await fetch(`${baseUrl}/health`)).json();
     expect(health).toMatchObject({ status: "ok", service: "astroport-juno-indexer", dataSource: "indexer", isMock: false, cursorHeight: 42 });
     const ready = await (await fetch(`${baseUrl}/ready`)).json();
-    expect(ready).toMatchObject({ status: "ready", database: "ok", migrationsApplied: 3 });
+    expect(ready).toMatchObject({ status: "ready", database: "ok", migrationsApplied: 3, checks: { database: true, migrations: true, rpc: true } });
     const stats = await (await fetch(`${baseUrl}/stats`)).json();
-    expect(stats).toMatchObject({ poolCount: 1, tvlJuno: null, isMock: false });
+    expect(stats).toMatchObject({ poolCount: 1, tvlUsd: null, tvlJuno: 1000, volume24hUsd: null, volume24hJuno: 25, incentivizedPools: 1, isMock: false });
     const openapi = await (await fetch(`${baseUrl}/openapi.json`)).json();
     expect(openapi.paths["/ready"]).toBeTruthy();
   });

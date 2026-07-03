@@ -39,19 +39,19 @@ Copy `.env.example` to `.env` or export variables:
 | `INCENTIVES_ADDRESS` | deployed Juno v1 incentives | Incentives contract to watch. |
 | `ORACLE_ADDRESS` | deployed Juno v1 oracle | Oracle contract for price/candle work. |
 | `NATIVE_COIN_REGISTRY_ADDRESS` | deployed Juno v1 native registry | Native registry contract. |
-| `START_HEIGHT` | `1` | Backfill start height; set to factory deployment height when known. |
+| `START_HEIGHT` | `39381297` | Juno v1 factory deployment height. Override only for intentional archive/full-chain replays. |
 | `CONFIRMATION_DEPTH` | `2` | Blocks to lag chain head for reorg safety. |
 | `POLL_INTERVAL_MS` | `5000` | Poll cadence. |
 | `BATCH_SIZE` | `20` | Max blocks per polling loop. |
 | `DRY_RUN` | `false` | If true, normalizes and logs without DB writes. |
 | `API_PORT` | `8787` | Port for the HTTP API served by the same production process as the poller. |
-| `PRICE_PROVIDER_BASE_URL` | unset | Optional HTTP JSON USD price provider used by the API resolver; queried with `?asset=<normalized asset>`. |
-| `PRICE_PROVIDER_API_KEY` | unset | Optional provider key; never commit real keys. |
-| `PRICE_PROVIDER_NAME` | `provider` | Source label returned with resolver results. |
-| `PRICE_CACHE_TTL_MS` | `300000` | In-process price cache TTL. |
-| `PRICE_STALE_AFTER_MS` | `1800000` | Age threshold before prices are flagged stale. |
-| `PRICE_ALLOW_STALE` | `true` | Set `false` to suppress stale prices as missing instead of returning stale values. |
-| `PRICE_DEV_MOCKS` | `false` | Opt-in local mock price source only; mock outputs are marked `isMock`. |
+| `PRICE_PROVIDER_BASE_URL` | unset | Reserved for a future provider worker. Current API only serves persisted `token_prices` rows. |
+| `PRICE_PROVIDER_API_KEY` | unset | Reserved for future provider credentials; never commit real keys. |
+| `PRICE_PROVIDER_NAME` | `provider` | Reserved source label for persisted provider writes. |
+| `PRICE_CACHE_TTL_MS` | `300000` | Reserved for future provider/cache worker. |
+| `PRICE_STALE_AFTER_MS` | `1800000` | Target age threshold for persisted price status. Current API returns stored `status`. |
+| `PRICE_ALLOW_STALE` | `true` | Reserved for future resolver policy; current API never fabricates replacement prices. |
+| `PRICE_DEV_MOCKS` | `false` | Reserved for local development only; production API in this package does not serve mocks. |
 
 ## Local development
 
@@ -111,9 +111,9 @@ Recommended platform settings:
 Production environment variables should mirror `.env.example`, with these deployment-specific values set by the host secret manager:
 
 - `DATABASE_URL`: managed Postgres connection string; require TLS if the provider supports `?sslmode=require`.
-- `START_HEIGHT`: factory deployment height for first backfill, not `1` unless a full-chain backfill is intentional.
+- `START_HEIGHT`: factory deployment height for first backfill (`39381297` for the recorded Juno v1 deployment), not `1` unless a full-chain backfill is intentional.
 - `JUNO_RPC_URL`, `JUNO_REST_URL`, `JUNO_WS_URL`: provider endpoints with agreed rate limits.
-- `PRICE_PROVIDER_*`: optional price source credentials; never commit real keys.
+- `PRICE_PROVIDER_*`: reserved for future persisted price-worker integration; never commit real keys.
 
 Runbook for a release:
 
@@ -139,7 +139,7 @@ psql "$DATABASE_URL" -c "select id, last_height, updated_at from indexer_cursors
 Expose `GET /health` and `GET /ready` at the same stable origin used by `VITE_DEX_INDEXER_URL`. The frontend client probes `/health` before reading `/stats`, `/pools`, `/prices`, `/wallets/:address/*`, and candle endpoints. The health response is JSON with at least:
 
 ```json
-{ "status": "ok", "chainId": "juno-1", "cursorHeight": 123456 }
+{ "status": "ok", "chainId": "juno-1", "cursorHeight": 123456, "headHeight": 123500, "lag": 44 }
 ```
 
 Alert on:
@@ -163,6 +163,6 @@ Alert on:
 
 ## Notes for follow-up issues
 
-- `START_HEIGHT` should be updated to the actual factory deployment height before a production backfill.
-- Pool state snapshots and USD oracle pricing still need production-quality valuation logic; candles are swap-derived and will be most accurate once asset decimal metadata is wired from the native registry/asset lists.
-- The frontend reads `VITE_DEX_INDEXER_URL`; keep pointing production at mock/dev data until this API has staging backfill data from real transactions.
+- Pool state snapshots and USD oracle pricing still need production-quality valuation logic; API totals stay `null` until persisted aggregate data exists rather than returning synthetic zeroes.
+- Candles are swap-derived and will be most accurate once asset decimal metadata is wired from the native registry/asset lists; quote volume is stored in `volume_quote`, not `volume_usd`.
+- The frontend reads `VITE_DEX_INDEXER_URL`; point it at this service only after staging has backfilled real transaction data and `/ready` reports `ready`.

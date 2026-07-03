@@ -6,6 +6,8 @@ export const DEFAULT_CONTRACTS = {
   nativeCoinRegistry: "juno1qwer7jleluth33trk2ywqvp6vwjh4j4zar3ag6dw5d8derkpel0sq8vfh2",
 } as const;
 
+export const DEFAULT_START_HEIGHT = 39_381_297;
+
 export type IndexerConfig = {
   databaseUrl: string;
   rpcUrl: string;
@@ -71,7 +73,7 @@ export function loadConfig(): IndexerConfig {
     incentivesAddress: env("INCENTIVES_ADDRESS", DEFAULT_CONTRACTS.incentives),
     oracleAddress: env("ORACLE_ADDRESS", DEFAULT_CONTRACTS.oracle),
     nativeCoinRegistryAddress: env("NATIVE_COIN_REGISTRY_ADDRESS", DEFAULT_CONTRACTS.nativeCoinRegistry),
-    startHeight: intEnv("START_HEIGHT", 1),
+    startHeight: intEnv("START_HEIGHT", DEFAULT_START_HEIGHT),
     confirmationDepth: intEnv("CONFIRMATION_DEPTH", 2),
     pollIntervalMs: intEnv("POLL_INTERVAL_MS", 5_000),
     batchSize: Math.max(1, intEnv("BATCH_SIZE", 20)),

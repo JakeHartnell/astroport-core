@@ -9,8 +9,13 @@ CREATE INDEX IF NOT EXISTS token_prices_status_idx ON token_prices (chain_id, as
 ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS tvl_juno NUMERIC(38,12);
 ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS volume_24h_usd NUMERIC(38,12);
 ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS volume_24h_juno NUMERIC(38,12);
+ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS volume_7d_usd NUMERIC(38,12);
+ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS volume_7d_juno NUMERIC(38,12);
 ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS fees_24h_usd NUMERIC(38,12);
 ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS fees_24h_juno NUMERIC(38,12);
+
+ALTER TABLE token_candles ADD COLUMN IF NOT EXISTS volume_quote NUMERIC(78,18);
+UPDATE token_candles SET volume_quote = volume_usd WHERE volume_quote IS NULL AND volume_usd IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS asset_metadata (
   chain_id TEXT NOT NULL,
@@ -42,6 +47,8 @@ SELECT DISTINCT ON (p.chain_id, p.pair_address)
   s.tvl_juno,
   s.volume_24h_usd,
   s.volume_24h_juno,
+  s.volume_7d_usd,
+  s.volume_7d_juno,
   s.fees_24h_usd,
   s.fees_24h_juno,
   s.created_at AS state_updated_at

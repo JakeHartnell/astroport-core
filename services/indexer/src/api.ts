@@ -85,13 +85,13 @@ export function createIndexerApi(store: IndexerApiStore): http.Server {
         const pool = await store.pool(parts[1]);
         return pool ? jsonResponse(res, 200, pool) : jsonResponse(res, 404, { error: "pool_not_found" });
       }
-      if (parts[0] === "pools" && parts[2] === "candles") {
+      if (parts[0] === "pools" && parts.length === 3 && parts[2] === "candles") {
         const page = await store.candles(parts[1], parsedQuery);
         return page ? jsonResponse(res, 200, page) : jsonResponse(res, 404, { error: "pool_not_found" });
       }
-      if (parts[0] === "pools" && parts[2] === "positions") return jsonResponse(res, 200, await store.poolPositions(parts[1], parsedQuery));
-      if (parts[0] === "wallets" && parts[2] === "positions") return jsonResponse(res, 200, await store.walletPositions(parts[1], parsedQuery));
-      if (parts[0] === "wallets" && parts[2] === "history") return jsonResponse(res, 200, await store.walletHistory(parts[1], parsedQuery));
+      if (parts[0] === "pools" && parts.length === 3 && parts[2] === "positions") return jsonResponse(res, 200, await store.poolPositions(parts[1], parsedQuery));
+      if (parts[0] === "wallets" && parts.length === 3 && parts[2] === "positions") return jsonResponse(res, 200, await store.walletPositions(parts[1], parsedQuery));
+      if (parts[0] === "wallets" && parts.length === 3 && parts[2] === "history") return jsonResponse(res, 200, await store.walletHistory(parts[1], parsedQuery));
       return jsonResponse(res, 404, { error: "not_found" });
     } catch (error) {
       if (error instanceof RangeError) return jsonResponse(res, 400, { error: "bad_request", message: error.message });
