@@ -86,6 +86,21 @@ describe("production API", () => {
     expect(candles.data[0]).toMatchObject({ baseAsset: "ujuno", quoteAsset: "uusdc", close: 1.1, volumeQuote: 11 });
   });
 
+
+  it("returns HTTP 503 when readiness checks report not_ready", async () => {
+    const db = new FakeDb();
+    const store = new PostgresApiStore(db as never, "juno-1", "cursor", { expectedMigrationCount: 4 });
+    const server = createIndexerApi(store);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    openServer = server;
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("missing port");
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/ready`);
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({ status: "not_ready", checks: { migrations: false } });
+  });
+
   it("returns structured errors without leaking database internals", async () => {
     const db = { query: async () => { throw new Error("secret database internals"); } };
     const { server, baseUrl } = await start(db as never);

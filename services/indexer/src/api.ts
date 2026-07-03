@@ -71,7 +71,10 @@ export function createIndexerApi(store: IndexerApiStore): http.Server {
     const parsedQuery = query(url.searchParams);
     try {
       if (url.pathname === "/health") return jsonResponse(res, 200, await store.health(), { "cache-control": "no-store" });
-      if (url.pathname === "/ready") return jsonResponse(res, 200, await store.ready(), { "cache-control": "no-store" });
+      if (url.pathname === "/ready") {
+        const body = await store.ready();
+        return jsonResponse(res, body.status === "ready" ? 200 : 503, body, { "cache-control": "no-store" });
+      }
       if (url.pathname === "/openapi.json") return jsonResponse(res, 200, openApiDocument);
       if (url.pathname === "/stats") return jsonResponse(res, 200, await store.stats());
       if (parts[0] === "prices" && parts.length <= 2) {

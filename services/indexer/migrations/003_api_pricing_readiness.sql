@@ -15,7 +15,6 @@ ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS fees_24h_usd NUMERIC(3
 ALTER TABLE pool_state_snapshots ADD COLUMN IF NOT EXISTS fees_24h_juno NUMERIC(38,12);
 
 ALTER TABLE token_candles ADD COLUMN IF NOT EXISTS volume_quote NUMERIC(78,18);
-UPDATE token_candles SET volume_quote = volume_usd WHERE volume_quote IS NULL AND volume_usd IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS asset_metadata (
   chain_id TEXT NOT NULL,

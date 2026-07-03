@@ -115,8 +115,31 @@ const walletTransaction = {
   },
 };
 
-function ok(schema: unknown) {
-  return { responses: { "200": { description: "OK", content: { "application/json": { schema } } }, "400": { description: "Bad request", content: { "application/json": { schema: errorResponse } } }, "404": { description: "Not found", content: { "application/json": { schema: errorResponse } } }, "500": { description: "Internal error", content: { "application/json": { schema: errorResponse } } } } };
+const limitParam = { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 500 }, required: false };
+const cursorParam = { name: "cursor", in: "query", schema: { type: "string" }, required: false };
+const assetQueryParam = { name: "assets", in: "query", schema: { type: "string" }, required: false, description: "Comma-separated native denoms, IBC denoms, or CW20 contract addresses." };
+const assetPathParam = { name: "asset", in: "path", schema: { type: "string" }, required: true };
+const idPathParam = { name: "id", in: "path", schema: { type: "string" }, required: true, description: "Pool UUID or pair address." };
+const walletPathParam = { name: "addr", in: "path", schema: { type: "string" }, required: true, description: "Juno wallet address." };
+const candleQueryParams = [
+  { name: "interval", in: "query", schema: { type: "string", enum: ["5m", "1h", "1d"] }, required: false },
+  { name: "from", in: "query", schema: { type: "string", format: "date-time" }, required: false },
+  { name: "to", in: "query", schema: { type: "string", format: "date-time" }, required: false },
+  { name: "baseAsset", in: "query", schema: { type: "string" }, required: false },
+  { name: "quoteAsset", in: "query", schema: { type: "string" }, required: false },
+];
+
+function ok(schema: unknown, extra: Record<string, unknown> = {}) {
+  return {
+    ...extra,
+    responses: {
+      "200": { description: "OK", content: { "application/json": { schema } } },
+      "400": { description: "Bad request", content: { "application/json": { schema: errorResponse } } },
+      "404": { description: "Not found", content: { "application/json": { schema: errorResponse } } },
+      "503": { description: "Not ready", content: { "application/json": { schema } } },
+      "500": { description: "Internal error", content: { "application/json": { schema: errorResponse } } },
+    },
+  };
 }
 
 export const openApiDocument = {
@@ -128,13 +151,13 @@ export const openApiDocument = {
     "/ready": { get: ok({ type: "object", properties: { status: { type: "string", enum: ["ready", "not_ready"] }, checks: { type: "object", properties: { database: { type: "boolean" }, migrations: { type: "boolean" }, rpc: { type: "boolean" } } }, migrationsApplied: { type: "integer" }, expectedMigrations: { type: ["integer", "null"] }, rpcReachable: { type: "boolean" }, dataSource: { type: "string", const: "indexer" }, isMock: { type: "boolean", const: false } } }) },
     "/openapi.json": { get: ok({ type: "object" }) },
     "/stats": { get: ok({ type: "object", properties: { poolCount: { type: "integer" }, tvlUsd: { type: ["number", "null"] }, tvlJuno: { type: ["number", "null"] }, volume24hUsd: { type: ["number", "null"] }, volume24hJuno: { type: ["number", "null"] }, volume7dUsd: { type: ["number", "null"] }, volume7dJuno: { type: ["number", "null"] }, fees24hUsd: { type: ["number", "null"] }, fees24hJuno: { type: ["number", "null"] }, incentivizedPools: { type: "integer" }, updatedAt: { type: "string", format: "date-time" }, dataSource: { type: "string", const: "indexer" }, isMock: { type: "boolean", const: false } } }) },
-    "/prices": { get: ok({ type: "object", properties: { data: { type: "array", items: price } }, required: ["data"] }) },
-    "/prices/{asset}": { get: ok(price) },
-    "/pools": { get: ok({ type: "object", properties: { data: { type: "array", items: pool }, pagination }, required: ["data", "pagination"] }) },
-    "/pools/{id}": { get: ok(pool) },
-    "/pools/{id}/candles": { get: ok({ type: "object", properties: { data: { type: "array", items: candle }, pagination, meta: { type: "object" } }, required: ["data", "pagination", "meta"] }) },
-    "/pools/{id}/positions": { get: ok({ type: "object", properties: { data: { type: "array" }, pagination }, required: ["data", "pagination"] }) },
-    "/wallets/{addr}/positions": { get: ok({ type: "object", properties: { data: { type: "array" }, pagination }, required: ["data", "pagination"] }) },
-    "/wallets/{addr}/history": { get: ok({ type: "object", properties: { data: { type: "array", items: walletTransaction }, pagination }, required: ["data", "pagination"] }) },
+    "/prices": { get: ok({ type: "object", properties: { data: { type: "array", items: price } }, required: ["data"] }, { parameters: [assetQueryParam] }) },
+    "/prices/{asset}": { get: ok(price, { parameters: [assetPathParam] }) },
+    "/pools": { get: ok({ type: "object", properties: { data: { type: "array", items: pool }, pagination }, required: ["data", "pagination"] }, { parameters: [limitParam, cursorParam, { name: "pair", in: "query", schema: { type: "string" }, required: false }] }) },
+    "/pools/{id}": { get: ok(pool, { parameters: [idPathParam] }) },
+    "/pools/{id}/candles": { get: ok({ type: "object", properties: { data: { type: "array", items: candle }, pagination, meta: { type: "object" } }, required: ["data", "pagination", "meta"] }, { parameters: [idPathParam, limitParam, cursorParam, ...candleQueryParams] }) },
+    "/pools/{id}/positions": { get: ok({ type: "object", properties: { data: { type: "array" }, pagination }, required: ["data", "pagination"] }, { parameters: [idPathParam, limitParam, cursorParam] }) },
+    "/wallets/{addr}/positions": { get: ok({ type: "object", properties: { data: { type: "array" }, pagination }, required: ["data", "pagination"] }, { parameters: [walletPathParam, limitParam, cursorParam] }) },
+    "/wallets/{addr}/history": { get: ok({ type: "object", properties: { data: { type: "array", items: walletTransaction }, pagination }, required: ["data", "pagination"] }, { parameters: [walletPathParam, limitParam, cursorParam] }) },
   },
 };
