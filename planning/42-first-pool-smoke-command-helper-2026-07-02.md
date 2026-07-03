@@ -15,8 +15,10 @@ helper that reads a rendered `deployment/juno-v1-testnet.json` and emits guarded
 2. querying the factory `pair` endpoint and exporting the pair address,
 3. seeding non-zero native liquidity and saving the provide-liquidity tx JSON,
 4. querying `pool`,
-5. simulating and broadcasting one tiny native swap, and
-6. re-querying `pool` before the post-smoke `update_pair_config` open step.
+5. simulating and broadcasting one tiny native swap directly through the pair,
+6. simulating and broadcasting the same single-hop native swap through the
+   router, and
+7. re-querying `pool` before the post-smoke `update_pair_config` open step.
 
 Added `scripts/check_juno_v1_first_pool_smoke_commands.py` and wired it into the
 pre-Rust CI launch guards plus the CI wiring self-check.
@@ -26,6 +28,8 @@ pre-Rust CI launch guards plus the CI wiring self-check.
 - Requires factory instantiate config to stay `permissioned=true` during smoke.
 - Requires `pair_create_msg_template` to stay XYK-only with exactly two native
   assets and no init params.
+- Requires the rendered router address and emits router smoke evidence at
+  `deployment/tx/<chain>/first-pool-smoke-router-tiny-swap.json`.
 - Emits commands only; it never broadcasts transactions.
 - Keeps generated tx JSON under ignored `deployment/tx/<chain>/` paths.
 

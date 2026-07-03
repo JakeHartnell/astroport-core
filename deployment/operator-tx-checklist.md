@@ -111,11 +111,12 @@ Before opening public pair creation, keep the factory `xyk` pair config
 - `query_pair`/factory pair lookup returns the expected pair address for the two
   native denoms.
 - `provide_liquidity` succeeds and pool balances are non-zero.
-- A tiny round-trip swap succeeds through the pair/router path with expected
+- A tiny direct pair swap and a tiny router swap both succeed with expected
   slippage bounds.
 
 Generate the guarded create/seed/query/swap command sequence from the rendered
-config so the first-pool denoms, factory address, and chain ID cannot drift:
+config so the first-pool denoms, factory/router addresses, and chain ID cannot
+drift:
 
 ```sh
 python3 scripts/build_juno_v1_first_pool_smoke_commands.py \
@@ -128,8 +129,9 @@ python3 scripts/build_juno_v1_first_pool_smoke_commands.py \
 Save the generated broadcast responses under
 `deployment/tx/uni-7/first-pool-smoke-create-pair.json`,
 `deployment/tx/uni-7/first-pool-smoke-provide-liquidity.json`, and
-`deployment/tx/uni-7/first-pool-smoke-tiny-swap.json`. Do not run the open-XYK
-helper until these pass.
+`deployment/tx/uni-7/first-pool-smoke-tiny-swap.json`, plus the router smoke
+evidence at `deployment/tx/uni-7/first-pool-smoke-router-tiny-swap.json`. Do
+not run the open-XYK helper until these pass.
 
 Only after those checks pass, broadcast `update_pair_config` with the same pair
 code ID and fees to set `permissioned=false`. Generate the message and

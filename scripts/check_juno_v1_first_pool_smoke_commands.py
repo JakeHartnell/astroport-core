@@ -102,7 +102,12 @@ def main() -> None:
             '"simulation":{"ask_asset_info":{"native_token":{"denom":"ibc/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"}},"offer_asset":{"amount":"1000","info":{"native_token":{"denom":"ujunox"}}}}',
             '"swap":{"ask_asset_info":{"native_token":{"denom":"ibc/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"}},"belief_price":null,"max_spread":"0.01","offer_asset":{"amount":"1000","info":{"native_token":{"denom":"ujunox"}}},"to":null}',
             "first-pool-smoke-tiny-swap.json",
+            "juno1router0000000000000000000000000000000000",
+            '"simulate_swap_operations":{"offer_amount":"1000","operations":[{"astro_swap":{"ask_asset_info":{"native_token":{"denom":"ibc/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"}},"offer_asset_info":{"native_token":{"denom":"ujunox"}}}}]}',
+            '"execute_swap_operations":{"max_spread":"0.01","minimum_receive":null,"operations":[{"astro_swap":{"ask_asset_info":{"native_token":{"denom":"ibc/0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"}},"offer_asset_info":{"native_token":{"denom":"ujunox"}}}}],"to":null}',
+            "first-pool-smoke-router-tiny-swap.json",
             "first_pool_smoke_commands=ready chain_id=uni-7",
+            "router=juno1router0000000000000000000000000000000000",
             "permissioned=true",
         ):
             if needle not in proc.stdout:
@@ -132,19 +137,28 @@ def main() -> None:
         if "native_token" not in bad_asset.stderr:
             fail(f"non-native asset failure was not explicit: {bad_asset.stderr!r}")
 
+        bad_router = json.loads(rendered.read_text())
+        del bad_router["addresses"]["astroport-router"]
+        bad_router_path = tmp / "bad-router.json"
+        bad_router_path.write_text(json.dumps(bad_router))
+        bad_router_proc = run_builder(bad_router_path, expect_ok=False)
+        if "addresses.astroport-router" not in bad_router_proc.stderr:
+            fail(f"missing router failure was not explicit: {bad_router_proc.stderr!r}")
+
     docs = README.read_text() + "\n" + CHECKLIST.read_text()
     for needle in (
         "scripts/build_juno_v1_first_pool_smoke_commands.py",
         "first-pool-smoke-create-pair.json",
         "first-pool-smoke-provide-liquidity.json",
         "first-pool-smoke-tiny-swap.json",
+        "first-pool-smoke-router-tiny-swap.json",
         "Do not run the open-XYK helper until these pass",
     ):
         if needle not in docs:
             fail(f"operator docs missing first-pool smoke helper text: {needle}")
 
     print("OK: Juno v1 first-pool smoke command builder emits guarded create/seed/query/swap snippets")
-    print("first_pool_smoke_commands=true create_pair=true seed_liquidity=true query_pool=true tiny_swap=true failure_cases=3")
+    print("first_pool_smoke_commands=true create_pair=true seed_liquidity=true query_pool=true tiny_swap=true router_tiny_swap=true failure_cases=4")
 
 
 if __name__ == "__main__":

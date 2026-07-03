@@ -75,7 +75,7 @@ def read_pair_template(config: dict[str, Any]) -> tuple[dict[str, Any], list[dic
     return template, asset_infos, denom_a, denom_b
 
 
-def read_config(config: dict[str, Any]) -> tuple[str, str, str, str, dict[str, Any], list[dict[str, Any]]]:
+def read_config(config: dict[str, Any]) -> tuple[str, str, str, str, str, dict[str, Any], list[dict[str, Any]]]:
     network = config.get("network")
     addresses = config.get("addresses")
     if not isinstance(network, dict):
@@ -85,12 +85,15 @@ def read_config(config: dict[str, Any]) -> tuple[str, str, str, str, dict[str, A
     chain_id = network.get("chain_id")
     fee_denom = network.get("fee_denom")
     factory = addresses.get("astroport-factory")
+    router = addresses.get("astroport-router")
     if not isinstance(chain_id, str) or not chain_id:
         fail("rendered config missing network.chain_id")
     if not isinstance(fee_denom, str) or not fee_denom:
         fail("rendered config missing network.fee_denom")
     if not isinstance(factory, str) or not factory.startswith("juno"):
         fail("rendered config missing addresses.astroport-factory")
+    if not isinstance(router, str) or not router.startswith("juno"):
+        fail("rendered config missing addresses.astroport-router")
     template, asset_infos, denom_a, denom_b = read_pair_template(config)
 
     initial_pair_configs = config.get("instantiate_msgs", {}).get("astroport-factory", {}).get("pair_configs")
@@ -100,7 +103,7 @@ def read_config(config: dict[str, Any]) -> tuple[str, str, str, str, dict[str, A
     if not isinstance(initial, dict) or initial.get("permissioned") is not True or initial.get("pair_type") != {"xyk": {}}:
         fail("factory must remain permissioned=true and XYK-only during first-pool smoke")
 
-    return chain_id, fee_denom, factory, denom_a, template, asset_infos
+    return chain_id, fee_denom, factory, router, denom_a, template, asset_infos
 
 
 def positive_int(raw: str, *, label: str) -> int:
@@ -134,7 +137,7 @@ def main() -> None:
     seed_b = positive_int(args.seed_amount_b, label="--seed-amount-b")
     swap_amount = positive_int(args.swap_amount, label="--swap-amount")
     config = load_json(args.config)
-    chain_id, _fee_denom, factory, denom_a, create_msg, asset_infos = read_config(config)
+    chain_id, _fee_denom, factory, router, denom_a, create_msg, asset_infos = read_config(config)
     denom_b = native_denom(asset_infos[1], label="pair_create_msg_template.asset_infos[1]")
     pair_address = args.pair_address
     if not pair_address:
@@ -162,6 +165,15 @@ def main() -> None:
             "ask_asset_info": asset_infos[1],
         }
     }
+    router_operations = [
+        {
+            "astro_swap": {
+                "offer_asset_info": asset_infos[0],
+                "ask_asset_info": asset_infos[1],
+            }
+        }
+    ]
+    router_simulation_msg = {"simulate_swap_operations": {"offer_amount": str(swap_amount), "operations": router_operations}}
     swap_msg = {
         "swap": {
             "offer_asset": {"info": asset_infos[0], "amount": str(swap_amount)},
@@ -169,6 +181,14 @@ def main() -> None:
             "belief_price": None,
             "max_spread": "0.01",
             "to": None,
+        }
+    }
+    router_swap_msg = {
+        "execute_swap_operations": {
+            "operations": router_operations,
+            "minimum_receive": None,
+            "to": None,
+            "max_spread": "0.01",
         }
     }
 
@@ -185,14 +205,19 @@ def main() -> None:
     print(shell(["junod", "tx", "wasm", "execute", pair_address, compact_json(provide_msg), "--amount", f"{seed_a}{denom_a},{seed_b}{denom_b}", *tx_common], output_prefix.with_name(output_prefix.name + "-provide-liquidity.json")))
     print("\n# 4. Verify pool balances are non-zero.")
     print(shell(["junod", "query", "wasm", "contract-state", "smart", pair_address, compact_json(pool_query_msg), "--chain-id", chain_id, "--output", "json"]))
-    print("\n# 5. Simulate and then broadcast one tiny native swap.")
+    print("\n# 5. Simulate and then broadcast one tiny native swap directly through the pair.")
     print(shell(["junod", "query", "wasm", "contract-state", "smart", pair_address, compact_json(simulation_msg), "--chain-id", chain_id, "--output", "json"]))
     print(shell(["junod", "tx", "wasm", "execute", pair_address, compact_json(swap_msg), "--amount", f"{swap_amount}{denom_a}", *tx_common], output_prefix.with_name(output_prefix.name + "-tiny-swap.json")))
-    print("\n# 6. Re-query the pool, then run build_juno_v1_open_pair_config_tx.py only after the smoke evidence is saved.")
+
+    print("\n# 6. Simulate and broadcast the same single-hop native swap through the router.")
+    print(shell(["junod", "query", "wasm", "contract-state", "smart", router, compact_json(router_simulation_msg), "--chain-id", chain_id, "--output", "json"]))
+    print(shell(["junod", "tx", "wasm", "execute", router, compact_json(router_swap_msg), "--amount", f"{swap_amount}{denom_a}", *tx_common], output_prefix.with_name(output_prefix.name + "-router-tiny-swap.json")))
+
+    print("\n# 7. Re-query the pool, then run build_juno_v1_open_pair_config_tx.py only after the smoke evidence is saved.")
     print(shell(["junod", "query", "wasm", "contract-state", "smart", pair_address, compact_json(pool_query_msg), "--chain-id", chain_id, "--output", "json"]))
     print(
         "first_pool_smoke_commands=ready "
-        f"chain_id={chain_id} factory={factory} denoms={denom_a},{denom_b} pair_address={pair_address} permissioned=true"
+        f"chain_id={chain_id} factory={factory} router={router} denoms={denom_a},{denom_b} pair_address={pair_address} permissioned=true"
     )
 
 
