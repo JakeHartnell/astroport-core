@@ -1,0 +1,92 @@
+{
+  "height": 39381352,
+  "txhash": "15CE5277D55668B4ADE7D44132C7E2EE4FE71882B2003C28503AF09D7138B502",
+  "timestamp": "2026-07-01T03:29:19Z",
+  "events": [
+    {
+      "type": "execute",
+      "attributes": [
+        {
+          "key": "_contract_address",
+          "value": "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "wasm",
+      "attributes": [
+        {
+          "key": "_contract_address",
+          "value": "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
+          "index": true
+        },
+        {
+          "key": "action",
+          "value": "swap",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76",
+          "index": true
+        },
+        {
+          "key": "receiver",
+          "value": "juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76",
+          "index": true
+        },
+        {
+          "key": "offer_asset",
+          "value": "ujuno",
+          "index": true
+        },
+        {
+          "key": "ask_asset",
+          "value": "factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/junoagenttest202607010323",
+          "index": true
+        },
+        {
+          "key": "offer_amount",
+          "value": "100000",
+          "index": true
+        },
+        {
+          "key": "return_amount",
+          "value": "98712",
+          "index": true
+        },
+        {
+          "key": "spread_amount",
+          "value": "991",
+          "index": true
+        },
+        {
+          "key": "commission_amount",
+          "value": "297",
+          "index": true
+        },
+        {
+          "key": "maker_fee_amount",
+          "value": "0",
+          "index": true
+        },
+        {
+          "key": "fee_share_amount",
+          "value": "0",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    }
+  ]
+}

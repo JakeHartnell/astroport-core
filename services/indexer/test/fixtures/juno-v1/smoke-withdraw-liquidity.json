@@ -1,0 +1,57 @@
+{
+  "height": 39381355,
+  "txhash": "ED1923D1DF041245296358BEC1EF80FDEFF47A3118F8CBD06EB73A7F5E860E97",
+  "timestamp": "2026-07-01T03:29:31Z",
+  "events": [
+    {
+      "type": "execute",
+      "attributes": [
+        {
+          "key": "_contract_address",
+          "value": "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "wasm",
+      "attributes": [
+        {
+          "key": "_contract_address",
+          "value": "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
+          "index": true
+        },
+        {
+          "key": "action",
+          "value": "withdraw_liquidity",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76",
+          "index": true
+        },
+        {
+          "key": "withdrawn_share",
+          "value": "1000",
+          "index": true
+        },
+        {
+          "key": "refund_assets",
+          "value": "1010ujuno, 990factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/junoagenttest202607010323",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    }
+  ]
+}

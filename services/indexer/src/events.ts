@@ -98,11 +98,19 @@ function all(raw: Record<string, string | string[]>, keys: string[]): string[] {
 }
 
 function parseAssets(raw: Record<string, string | string[]>): AssetAmount[] {
-  const denoms = all(raw, ["assets", "asset", "withdrawn_assets", "provided_assets", "offer_asset", "ask_asset"]);
+  const denoms = all(raw, ["assets", "asset", "withdrawn_assets", "refund_assets", "provided_assets", "offer_asset", "ask_asset"]);
   const amounts = all(raw, ["amounts", "amount", "withdrawn_amounts", "provided_amounts"]);
   if (denoms.length === 0 && amounts.length === 0) return [];
+  if (denoms.length === 1 && amounts.length === 0) return parseCoinList(denoms[0]);
   if (denoms.length === amounts.length) return denoms.map((asset, index) => ({ asset, amount: amounts[index] }));
   return denoms.map((asset) => ({ asset }));
+}
+
+function parseCoinList(value: string): AssetAmount[] {
+  return value.split(",").map((part) => part.trim()).filter(Boolean).map((coin) => {
+    const match = coin.match(/^(\d+)(.+)$/);
+    return match ? { amount: match[1], asset: match[2] } : { asset: coin };
+  });
 }
 
 function isWasm(event: TendermintEvent): boolean {
@@ -121,9 +129,9 @@ export function normalizeWasmEvent(
 
   if (!action || !contract) return undefined;
 
-  if (contract === contracts.factoryAddress && ["create_pair", "pair_created", "create_pair_and_distribution_flows"].includes(action)) {
+  if (contract === contracts.factoryAddress && ["create_pair", "pair_created", "create_pair_and_distribution_flows", "register"].includes(action)) {
     const pairAddress = first(raw, ["pair_contract_addr", "pair_address", "contract_addr", "pair"]);
-    if (!pairAddress) return undefined;
+    if (!pairAddress || !pairAddress.startsWith("juno1")) return undefined;
     return {
       ...context,
       kind: "pool_created",
@@ -171,7 +179,7 @@ export function normalizeWasmEvent(
       pairAddress: contract,
       provider: first(raw, ["sender", "provider", "receiver"]),
       assets: parseAssets(raw),
-      shareAmount: first(raw, ["share", "share_amount", "refund_share"]),
+      shareAmount: first(raw, ["share", "share_amount", "refund_share", "withdrawn_share"]),
       raw,
     };
   }

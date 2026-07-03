@@ -1,0 +1,62 @@
+{
+  "height": 39381353,
+  "txhash": "F6C33B16578AAA1A4DC4931C250A07649F0F750AC8EAAE150146F5C6D54C5079",
+  "timestamp": "2026-07-01T03:29:22Z",
+  "events": [
+    {
+      "type": "execute",
+      "attributes": [
+        {
+          "key": "_contract_address",
+          "value": "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "wasm",
+      "attributes": [
+        {
+          "key": "_contract_address",
+          "value": "juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
+          "index": true
+        },
+        {
+          "key": "action",
+          "value": "provide_liquidity",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76",
+          "index": true
+        },
+        {
+          "key": "receiver",
+          "value": "juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76",
+          "index": true
+        },
+        {
+          "key": "assets",
+          "value": "10000ujuno, 9803factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/junoagenttest202607010323",
+          "index": true
+        },
+        {
+          "key": "share",
+          "value": "9900",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    }
+  ]
+}
