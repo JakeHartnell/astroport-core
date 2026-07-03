@@ -2,6 +2,7 @@ import type { IndexerConfig } from "./config.js";
 import { advanceCursor, createPool, getCursor, recordProcessedBlock, writeNormalizedEvent, type PgPool } from "./db.js";
 import { normalizeBlockEvents } from "./events.js";
 import { JunoRpcClient } from "./rpc.js";
+import { nextBlockRange } from "./ranges.js";
 
 export class Indexer {
   private readonly rpc: JunoRpcClient;
@@ -18,15 +19,14 @@ export class Indexer {
     if (this.ownsPool) await this.pool?.end();
   }
 
-  async runOnce(): Promise<{ processed: number; head: number; target: number }> {
+  async runOnce(maxHeight?: number): Promise<{ processed: number; head: number; target: number }> {
     const head = await this.rpc.head();
     const target = Math.max(0, head.height - this.config.confirmationDepth);
     const lastHeight = this.config.dryRun
       ? Math.max(0, this.config.startHeight - 1)
       : await withClient(this.pool!, (client) => getCursor(client, this.config.cursorId, this.config.chainId, this.config.startHeight));
-    const from = lastHeight + 1;
-    const to = Math.min(target, lastHeight + this.config.batchSize);
-    if (to < from) return { processed: 0, head: head.height, target };
+    const { from, to, empty } = nextBlockRange({ lastHeight, confirmedTarget: target, batchSize: this.config.batchSize, maxHeight });
+    if (empty) return { processed: 0, head: head.height, target };
 
     let processed = 0;
     for (let height = from; height <= to; height += 1) {
@@ -73,6 +73,11 @@ export class Indexer {
       console.log(`indexer loop processed=${result.processed} head=${result.head} target=${result.target}`);
       await new Promise((resolve) => setTimeout(resolve, this.config.pollIntervalMs));
     }
+  }
+
+  async runUntilHeight(maxHeight: number): Promise<{ processed: number; head: number; target: number; done: boolean }> {
+    const result = await this.runOnce(maxHeight);
+    return { ...result, done: result.processed === 0 || result.target >= maxHeight };
   }
 }
 

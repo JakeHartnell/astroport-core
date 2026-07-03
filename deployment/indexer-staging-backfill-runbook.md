@@ -22,7 +22,12 @@ npm run build
 # Empty/staging database only.
 npm run migrate
 
-# Start indexer/API with the recorded factory deployment height.
+# Start a bounded first staging backfill through the recorded smoke-test withdraw tx.
+START_HEIGHT=39381297 \
+CONFIRMATION_DEPTH=2 \
+npm run backfill:range -- --to-height=39381355
+
+# Then run the long-lived poller/API.
 START_HEIGHT=39381297 \
 CONFIRMATION_DEPTH=2 \
 API_PORT=8787 \
