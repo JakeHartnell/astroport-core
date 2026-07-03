@@ -1,3 +1,10 @@
+export function parseNonNegativeInteger(value: string, name: string): number {
+  if (!/^\d+$/.test(value)) throw new Error(`${name} must be a non-negative integer`);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) throw new Error(`${name} must be a non-negative integer`);
+  return parsed;
+}
+
 export type BlockRangeInput = {
   lastHeight: number;
   confirmedTarget: number;

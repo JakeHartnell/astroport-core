@@ -27,6 +27,9 @@ START_HEIGHT=39381297 \
 CONFIRMATION_DEPTH=2 \
 npm run backfill:range -- --to-height=39381355
 
+# Verify the bounded command actually reached the requested smoke-test height.
+psql "$DATABASE_URL" -c "select id, last_height, last_block_hash, updated_at from indexer_cursors where id = 'astroport-juno-v1' and last_height >= 39381355;"
+
 # Then run the long-lived poller/API.
 START_HEIGHT=39381297 \
 CONFIRMATION_DEPTH=2 \

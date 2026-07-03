@@ -1,3 +1,4 @@
+import { parseNonNegativeInteger } from "./ranges.js";
 import { loadConfig } from "./config.js";
 import { createPool, runMigrations } from "./db.js";
 import { Indexer } from "./indexer.js";
@@ -7,9 +8,7 @@ function intArg(name: string): number | undefined {
   const arg = process.argv.find((value) => value.startsWith(prefix));
   const raw = arg ? arg.slice(prefix.length) : process.env[name.toUpperCase().replace(/-/g, "_")];
   if (!raw) return undefined;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 0) throw new Error(`${name} must be a non-negative integer`);
-  return parsed;
+  return parseNonNegativeInteger(raw, name);
 }
 
 const toHeight = intArg("to-height");
@@ -25,7 +24,7 @@ try {
   for (;;) {
     const result = await indexer.runUntilHeight(toHeight);
     totalProcessed += result.processed;
-    console.log(`bounded backfill processed=${result.processed} total=${totalProcessed} head=${result.head} target=${result.target} to_height=${toHeight}`);
+    console.log(`bounded backfill processed=${result.processed} total=${totalProcessed} head=${result.head} target=${result.target} cursor=${result.cursorHeight} to_height=${toHeight}`);
     if (result.done) break;
   }
 } finally {
