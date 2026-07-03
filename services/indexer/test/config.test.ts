@@ -15,6 +15,7 @@ describe("config", () => {
       expect(config.priceProviderName).toBe("provider");
       expect(config.priceCacheTtlMs).toBe(300_000);
       expect(config.priceAllowStale).toBe(true);
+      expect(config.apiPort).toBe(8787);
     } finally {
       process.env = previous;
     }

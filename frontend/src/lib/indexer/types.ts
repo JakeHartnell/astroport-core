@@ -9,7 +9,9 @@ export type IndexerAssetAmount = {
   reserve?: string;
   amount?: string;
   valueUsd?: number | null;
+  valueJuno?: number | null;
   priceUsd?: number | null;
+  priceJuno?: number | null;
   priceStatus?: "fresh" | "stale" | "missing" | string | null;
   priceSource?: string | null;
   priceUpdatedAt?: string | null;
@@ -19,6 +21,7 @@ export type IndexerAssetAmount = {
 export type IndexerPrice = {
   asset: string | null;
   priceUsd: number | null;
+  priceJuno?: number | null;
   source: string | null;
   status: "fresh" | "stale" | "missing" | string;
   stale: boolean;
@@ -35,10 +38,13 @@ export type IndexerPoolMetrics = {
   poolType: string | null;
   assets: IndexerAssetAmount[];
   tvlUsd: number | null;
+  tvlJuno?: number | null;
   volume24hUsd: number | null;
+  volume24hJuno?: number | null;
   volume7dUsd: number | null;
   feeBps: number | null;
   fees24hUsd: number | null;
+  fees24hJuno?: number | null;
   feeApr: number;
   incentivesApr: number;
   totalApr: number;
@@ -90,6 +96,7 @@ export type IndexerPoolPosition = {
   lpBalance: string;
   shareBps: number;
   valueUsd: number | null;
+  valueJuno?: number | null;
   assets: IndexerAssetAmount[];
   updatedAt: string;
   dataSource: "indexer" | "mock" | string;
@@ -116,9 +123,12 @@ export type IndexerWalletTransaction = {
 export type IndexerProtocolStats = {
   poolCount: number;
   tvlUsd: number;
+  tvlJuno?: number | null;
   volume24hUsd: number;
+  volume24hJuno?: number | null;
   volume7dUsd: number;
   fees24hUsd: number;
+  fees24hJuno?: number | null;
   incentivizedPools: number;
   updatedAt: string;
   dataSource: "indexer" | "mock" | string;

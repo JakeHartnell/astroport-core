@@ -30,6 +30,7 @@ export type IndexerConfig = {
   priceStaleAfterMs: number;
   priceAllowStale: boolean;
   priceDevMocks: boolean;
+  apiPort: number;
 };
 
 function env(name: string, fallback: string): string {
@@ -83,5 +84,6 @@ export function loadConfig(): IndexerConfig {
     priceStaleAfterMs: intEnv("PRICE_STALE_AFTER_MS", 1_800_000),
     priceAllowStale: boolEnv("PRICE_ALLOW_STALE", true),
     priceDevMocks: boolEnv("PRICE_DEV_MOCKS"),
+    apiPort: intEnv("API_PORT", 8787),
   };
 }
