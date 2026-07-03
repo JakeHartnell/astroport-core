@@ -150,7 +150,7 @@ export class PostgresApiStore implements IndexerApiStore {
 
   async stats() {
     const result = await this.db.query(
-      `SELECT count(p.id)::int AS pool_count,
+      `SELECT count(DISTINCT p.id)::int AS pool_count,
               count(DISTINCT ie.lp_token_address)::int AS incentivized_pools,
               max(COALESCE(lps.state_updated_at, p.updated_at)) AS updated_at,
               sum(lps.tvl_usd) FILTER (WHERE lps.tvl_usd IS NOT NULL) AS tvl_usd,
@@ -163,7 +163,8 @@ export class PostgresApiStore implements IndexerApiStore {
               sum(lps.fees_24h_juno) FILTER (WHERE lps.fees_24h_juno IS NOT NULL) AS fees_24h_juno
        FROM pools p
        LEFT JOIN latest_pool_states lps ON lps.chain_id = p.chain_id AND lps.pair_address = p.pair_address
-       LEFT JOIN incentive_events ie ON ie.chain_id = p.chain_id AND ie.lp_token_address = p.liquidity_token_address
+       LEFT JOIN (SELECT DISTINCT chain_id, lp_token_address FROM incentive_events WHERE lp_token_address IS NOT NULL) ie
+         ON ie.chain_id = p.chain_id AND ie.lp_token_address = p.liquidity_token_address
        WHERE p.chain_id = $1`,
       [this.chainId],
     );
