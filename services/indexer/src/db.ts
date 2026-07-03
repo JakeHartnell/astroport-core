@@ -51,6 +51,26 @@ export async function recordProcessedBlock(
   client: PgClient,
   params: { chainId: string; height: number; blockHash: string; parentHash?: string; blockTime: string; txCount: number },
 ): Promise<void> {
+  const existing = await client.query<{ block_hash: string; parent_hash: string | null }>(
+    `SELECT block_hash, parent_hash FROM processed_blocks WHERE chain_id = $1 AND height = $2`,
+    [params.chainId, params.height],
+  );
+  const existingBlock = existing.rows[0];
+  if (existingBlock && existingBlock.block_hash !== params.blockHash) {
+    throw new Error(`processed block hash mismatch at height ${params.height}: existing=${existingBlock.block_hash} incoming=${params.blockHash}`);
+  }
+
+  if (params.parentHash) {
+    const previous = await client.query<{ block_hash: string }>(
+      `SELECT block_hash FROM processed_blocks WHERE chain_id = $1 AND height = $2 - 1`,
+      [params.chainId, params.height],
+    );
+    const previousHash = previous.rows[0]?.block_hash;
+    if (previousHash && previousHash !== params.parentHash) {
+      throw new Error(`processed block parent hash mismatch at height ${params.height}: previous=${previousHash} incoming_parent=${params.parentHash}`);
+    }
+  }
+
   await client.query(
     `INSERT INTO processed_blocks(chain_id, height, block_hash, parent_hash, block_time, tx_count)
      VALUES ($1, $2, $3, $4, $5, $6)
