@@ -1,0 +1,71 @@
+/* Surface overrides: create. Cascades after theme.css — scoped, page-specific rules only. */
+
+/* --- Eyebrow-led header: no billboard title --- */
+.create-pool-page > h2 {
+  margin: 0 0 10px;
+  font-size: 1.25rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+  color: var(--cream);
+}
+.create-pool-page > p:not(.eyebrow) {
+  max-width: 72ch;
+  color: var(--cream-mute);
+  font-size: 0.9rem;
+}
+
+/* Inner card section heading stays quiet + structural */
+.create-pool-page .swap-card-header h2 {
+  font-size: 1.05rem;
+  font-weight: 500;
+  color: var(--cream);
+}
+
+/* --- Mono machine-voice labels across the form --- */
+.create-pool-page dt {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+}
+
+/* Custom-asset controls + toggle: mono labels, hairline frames */
+.create-pool-page .custom-asset-grid label,
+.create-pool-page .custom-asset-toggle {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--cream-mute);
+}
+
+.create-pool-page .custom-asset-grid input,
+.create-pool-page .custom-asset-grid select {
+  border: 1px solid var(--line-hair);
+  border-radius: var(--r-sm, 3px);
+  background: var(--surface-inset);
+  color: var(--cream);
+}
+
+/* Guardrails / duplicate notices read as quiet mono footnotes */
+.create-pool-page .empty-state.compact strong {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--coral);
+}
+.create-pool-page .empty-state.compact ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--cream-mute);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .create-pool-page > h2 {
+    font-size: 1.15rem;
+  }
+}

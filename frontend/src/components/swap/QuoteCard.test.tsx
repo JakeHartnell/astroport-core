@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { dexRegistry } from "../../config/registry";
 import type { RouteQuote } from "../../queries/useSwapQuote";
@@ -15,7 +15,7 @@ vi.mock("../../queries/usePools", () => ({
 }));
 
 describe("QuoteCard layout", () => {
-  it("marks quote details so long values can wrap inside the card", () => {
+  it("shows the route inline and marks values so long text can wrap inside the card", () => {
     const pool = dexRegistry.pools[0];
     const askAsset = pool.assets[1];
     const quote: RouteQuote = {
@@ -34,14 +34,12 @@ describe("QuoteCard layout", () => {
 
     render(<QuoteCard quote={quote} askAsset={askAsset} isLoading={false} slippageBps={50} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /quote details/i }));
-    const detailsLabel = screen.getAllByText("Route").find((element) => element.tagName === "DT");
-    const details = detailsLabel?.closest("dl");
-    expect(details?.className).toBe("quote-details");
-    expect(screen.getByText(/JUNO → JUNOAGENT-TEST/i).closest("dd")?.className).toBe("quote-detail-value");
+    const routeLabel = screen.getAllByText("Route").find((element) => element.tagName === "DT");
+    expect(routeLabel?.closest("dl")?.className).toBe("quote-rows");
+    expect(screen.getByText(/JUNO → JUNOAGENT-TEST/i).closest("dd")?.className).toBe("quote-row-value route-value");
   });
 
-  it("keeps quote details compact for stable/PCL routes", () => {
+  it("renders the compact inline quote rows without an expandable details panel", () => {
     const pool = { ...dexRegistry.pools[0], type: "stable" as const };
     const askAsset = pool.assets[1];
     const quote: RouteQuote = {
@@ -60,10 +58,9 @@ describe("QuoteCard layout", () => {
 
     render(<QuoteCard quote={quote} askAsset={askAsset} isLoading={false} slippageBps={50} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /quote details/i }));
-    expect(screen.getByText("Network fee")).toBeTruthy();
+    expect(screen.getByText("Rate")).toBeTruthy();
     expect(screen.getByText("Max slippage")).toBeTruthy();
-    expect(screen.queryByText(/contract-simulated/i)).toBeNull();
-    expect(screen.queryByText(/pool math is not recomputed locally/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /quote details/i })).toBeNull();
+    expect(screen.queryByText("Network fee")).toBeNull();
   });
 });

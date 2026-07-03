@@ -39,10 +39,10 @@ export function PoolTable({ pools }: { pools: RegistryPool[] }) {
       <PoolListControls controls={controls} onChange={setControls} />
       <div className="pool-table" role="table" aria-label="Juno pools">
         <div className="pool-table-header" role="row">
-          <span role="columnheader">Pool</span>
+          <span role="columnheader">Pool node</span>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "tvl"))}>TVL</button>
-          <button type="button" onClick={() => setControls((current) => toggleSort(current, "volume"))}>24h volume</button>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "apr"))}>APR</button>
+          <button type="button" onClick={() => setControls((current) => toggleSort(current, "volume"))}>24h vol</button>
           <span role="columnheader">Your position</span>
         </div>
         {visiblePools.map((pool) => (
@@ -63,12 +63,12 @@ export function PoolTable({ pools }: { pools: RegistryPool[] }) {
 function PoolListControls({ controls, onChange }: { controls: PoolListControls; onChange: (controls: PoolListControls) => void }) {
   return (
     <div className="pool-list-controls" aria-label="Pool filters">
-      <label>
+      <label className="pool-list-search">
         Search pools
         <input
           value={controls.search}
           onChange={(event) => onChange({ ...controls, search: event.target.value })}
-          placeholder="Search by symbol, address, LP token…"
+          placeholder="Symbol, address, LP token…"
         />
       </label>
       <label>
@@ -120,6 +120,8 @@ function toggleSort(controls: PoolListControls, sortKey: PoolListSortKey): PoolL
 
 function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metrics?: PoolMetrics; balances?: readonly WalletBalance[]; access?: DataAccessState }) {
   const lpBalance = getWalletBalanceAmount(balances, pool.lpToken);
+  const apr = getPoolTotalApr(metrics);
+  const hot = Boolean(pool.featured) || (typeof apr === "number" && apr >= 40);
   return (
     <Link className="pool-row" role="row" to={`/pools/${pool.pair}`} aria-label={`Open ${pool.label} pool details`}>
       <div className="pool-main" role="cell">
@@ -130,11 +132,12 @@ function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metr
           <div className="pool-title-copy">
             <strong>{pool.label}</strong>
           </div>
+          {hot ? <span className="pool-hot-badge">Hot</span> : null}
         </div>
       </div>
       <MetricCell label="TVL" value={formatUsd(metrics?.tvlUsd)} metrics={metrics} access={access} />
-      <MetricCell label="24h volume" value={formatUsd(metrics?.volume24hUsd)} metrics={metrics} access={access} />
-      <MetricCell label="APR" value={formatApr(getPoolTotalApr(metrics))} metrics={metrics} access={access} />
+      <MetricCell label="APR" value={formatApr(apr)} metrics={metrics} access={access} tone="apr" />
+      <MetricCell label="24h vol" value={formatUsd(metrics?.volume24hUsd)} metrics={metrics} access={access} />
       <div className="pool-position" role="cell">
         <span>Your position</span>
         <strong>{lpBalance && lpBalance !== "0" ? formatAmount(lpBalance, 6) : "No LP detected"}</strong>
@@ -143,9 +146,9 @@ function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metr
   );
 }
 
-function MetricCell({ label, value, metrics, access }: { label: string; value: string | undefined; metrics?: PoolMetrics; access?: DataAccessState }) {
+function MetricCell({ label, value, metrics, access, tone }: { label: string; value: string | undefined; metrics?: PoolMetrics; access?: DataAccessState; tone?: "apr" }) {
   return (
-    <div className="pool-metric" role="cell">
+    <div className={tone === "apr" ? "pool-metric pool-metric-apr" : "pool-metric"} role="cell">
       <span>{label}</span>
       <strong>{value ?? "—"}</strong>
       {value && access && !access.isStale ? <small>live</small> : null}

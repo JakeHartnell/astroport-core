@@ -1,0 +1,79 @@
+/* Surface overrides: portfolio. Cascades after theme.css — scoped, page-specific rules only. */
+
+/* --- Eyebrow-led header: kill the billboard H1 + paragraph --- */
+.portfolio-hero {
+  align-items: flex-end;
+  gap: 18px;
+}
+.portfolio-hero-lead {
+  display: grid;
+  gap: 2px;
+}
+.portfolio-page h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+  color: var(--cream);
+}
+
+/* --- Machine-voice labels sit above big mono numerics --- */
+.portfolio-page .metric-card > span,
+.portfolio-page dt {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cream-faint);
+}
+
+.portfolio-page .metric-card strong,
+.portfolio-page .metric-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.55rem;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--cream);
+}
+
+/* Honest "USD price unavailable" / "missing" states — quiet, not a hero */
+.portfolio-page .metric-value-muted {
+  font-size: 0.95rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--cream-mute);
+}
+
+/* Supporting captions read as quiet mono footnotes */
+.portfolio-page .metric-card small,
+.portfolio-page .metric-card code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--cream-faint);
+}
+
+/* Detail rows: mono values, quiet inline notes */
+.portfolio-page .quote-detail-value {
+  color: var(--cream-dim);
+}
+.portfolio-page .quote-detail-value small {
+  color: var(--cream-faint);
+}
+
+/* Position + balances panels: compact structural heading */
+.portfolio-page .lp-position-header h3 {
+  font-size: 1.15rem;
+}
+
+@media (max-width: 640px) {
+  .portfolio-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .portfolio-page .metric-card strong,
+  .portfolio-page .metric-value {
+    font-size: 1.35rem;
+  }
+}

@@ -38,38 +38,46 @@ export function PoolDetailPage() {
 
   return (
     <section className="panel-page pool-detail-page">
-      <div className="pool-detail-header">
-        <div>
-          <p className="eyebrow">Pool detail</p>
+      <header className="pool-detail-header">
+        <div className="pool-detail-lead">
+          <p className="eyebrow pool-detail-eyebrow">Pool · {pool.assets.map((asset) => asset.symbol).join(" / ")}</p>
           <h2>{pool.label}</h2>
-          <p className="risk-copy">{pool.assets.map((asset) => asset.symbol).join(" / ")} analytics use live pair reserves plus market metrics when configured. {poolType?.detailCopy}</p>
+          <p className="pool-detail-meta">{poolType?.label ?? pool.type.toUpperCase()} · {pool.feeBps} bps fee</p>
           {risk ? <RiskBadgeList assessment={risk} max={6} /> : null}
         </div>
-        <div className="pool-actions pool-detail-actions" aria-label="Pool actions">
-          <Link to="/swap">Swap</Link>
-          <a href="#add-liquidity">Add liquidity</a>
-          <a href="#remove-liquidity">Remove liquidity</a>
-          <a href="#incentives">Incentives</a>
+        <Link className="pool-detail-back" to="/pools">← Back to pools</Link>
+      </header>
+
+      <div className="pool-detail-identity" aria-label="Contract identity">
+        <p className="eyebrow">Contract identity</p>
+        <div className="pool-identity-row">
+          <span className="pool-identity-label">Pair</span>
+          <code>{pool.pair}</code>
+          <button type="button" onClick={() => navigator.clipboard?.writeText(pool.pair)}>Copy</button>
+        </div>
+        <div className="pool-identity-row">
+          <span className="pool-identity-label">LP token</span>
+          <details className="identifier-disclosure"><summary>Show token ID</summary><code>{pool.lpToken}</code></details>
+          <button type="button" onClick={() => navigator.clipboard?.writeText(pool.lpToken)}>Copy</button>
         </div>
       </div>
-
-      <div className="contract-strip"><span>Pair</span><code>{pool.pair}</code><button type="button" onClick={() => navigator.clipboard?.writeText(pool.pair)}>Copy</button></div>
-      <div className="contract-strip"><span>LP token</span><details className="identifier-disclosure"><summary>Show token ID</summary><code>{pool.lpToken}</code></details><button type="button" onClick={() => navigator.clipboard?.writeText(pool.lpToken)}>Copy</button></div>
       {reserves.isError ? <p className="error-text">Live reserve query failed: {reserves.error instanceof Error ? reserves.error.message : String(reserves.error)}</p> : null}
       {poolMetrics.access?.error ? <p className="error-text">Pool metrics are temporarily unavailable.</p> : null}
 
-      <div className="metrics-grid" aria-label="Pool analytics cards">
-        <MetricCard label="TVL" value={formatUsd(metrics?.tvlUsd) ?? "Metrics unavailable"} hint={metrics?.tvlUsd ? "Updated market data" : "Requires pricing data"} />
-        <MetricCard label="24h volume" value={formatUsd(metrics?.volume24hUsd) ?? "Metrics unavailable"} hint={metrics?.volume24hUsd ? "Updated market data" : "Requires volume data"} />
-        <MetricCard label="APR" value={formatApr(getPoolTotalApr(metrics)) ?? "Metrics unavailable"} hint={metrics ? aprHint(metrics) : "Requires fee and incentives data"} />
-        <MetricCard label="Pool type" value={poolType?.label ?? pool.type.toUpperCase()} hint={`${pool.feeBps} bps fee tier · ${poolType?.feeCopy ?? "pool fee"}`} />
-        <MetricCard label="Total share" value={reserves.data ? formatAmount(reserves.data.total_share, 6) : "—"} hint="LP token supply" />
-        <MetricCard label="Query status" value={poolStatus} hint={reserves.data ? "Pair contract queried through RPC" : "RPC degraded or not queried"} />
-      </div>
-
-      {!metrics ? (
-        <p className="pool-metrics-copy">TVL, 24h volume, and APR are unavailable for this pool.</p>
-      ) : null}
+      <section className="pool-detail-section" aria-labelledby="analytics-title">
+        <h3 id="analytics-title">Analytics</h3>
+        <div className="metrics-grid" aria-label="Pool analytics cards">
+          <MetricCard label="TVL" value={formatUsd(metrics?.tvlUsd) ?? "Metrics unavailable"} hint={metrics?.tvlUsd ? "Updated market data" : "Requires pricing data"} />
+          <MetricCard label="24h volume" value={formatUsd(metrics?.volume24hUsd) ?? "Metrics unavailable"} hint={metrics?.volume24hUsd ? "Updated market data" : "Requires volume data"} />
+          <MetricCard label="APR" value={formatApr(getPoolTotalApr(metrics)) ?? "Metrics unavailable"} hint={metrics ? aprHint(metrics) : "Requires fee and incentives data"} />
+          <MetricCard label="Pool type" value={poolType?.label ?? pool.type.toUpperCase()} hint={`${pool.feeBps} bps fee tier · ${poolType?.feeCopy ?? "pool fee"}`} />
+          <MetricCard label="Total share" value={reserves.data ? formatAmount(reserves.data.total_share, 6) : "—"} hint="LP token supply" />
+          <MetricCard label="Query status" value={poolStatus} hint={reserves.data ? "Pair contract queried through RPC" : "RPC degraded or not queried"} />
+        </div>
+        {!metrics ? (
+          <p className="pool-metrics-copy">TVL, 24h volume, and APR are unavailable for this pool.</p>
+        ) : null}
+      </section>
 
       <section className="pool-detail-section" aria-labelledby="composition-title">
         <h3 id="composition-title">Reserve composition</h3>
@@ -104,18 +112,15 @@ export function PoolDetailPage() {
       </section>
 
       <section id="position"><LpPositionPanel pool={pool} compact /></section>
-      <IncentivesPanel pool={pool} metrics={metrics} />
+      <section id="incentives"><IncentivesPanel pool={pool} metrics={metrics} /></section>
 
-      <div className="mode-tabs pool-detail-tabs" aria-label="Liquidity sections">
-        <a className="mode-tab active" href="#add-liquidity">Add</a>
-        <a className="mode-tab" href="#remove-liquidity">Remove</a>
-        <a className="mode-tab" href="#position">Position</a>
-        <a className="mode-tab" href="#incentives">Incentives</a>
-      </div>
-      <div className="liquidity-grid">
-        <section id="add-liquidity"><AddLiquidityForm pool={pool} /></section>
-        <section id="remove-liquidity"><RemoveLiquidityForm pool={pool} /></section>
-      </div>
+      <section className="pool-detail-section" aria-labelledby="manage-liquidity-title">
+        <h3 id="manage-liquidity-title">Manage liquidity</h3>
+        <div className="liquidity-grid">
+          <section id="add-liquidity"><AddLiquidityForm pool={pool} /></section>
+          <section id="remove-liquidity"><RemoveLiquidityForm pool={pool} /></section>
+        </div>
+      </section>
 
       <section className="pool-detail-section" aria-label="Recent wallet transactions">
         <WalletTransactionHistory
@@ -133,7 +138,10 @@ export function PoolDetailPage() {
 }
 
 function MetricCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return <div className="metric-card"><span>{label}</span><strong>{value}</strong>{hint ? <code>{hint}</code> : null}</div>;
+  const muted = value === "Metrics unavailable" || value === "—" || value === "Unavailable";
+  const long = value.length > 22;
+  const valueClass = [muted ? "metric-value-muted" : "", long ? "metric-value-long" : ""].filter(Boolean).join(" ") || undefined;
+  return <div className="metric-card"><span>{label}</span><strong className={valueClass}>{value}</strong>{hint ? <code>{hint}</code> : null}</div>;
 }
 
 function ReserveCard({ asset, index, pool, reserves }: { asset: RegistryAsset; index: number; pool: RegistryPool; reserves: PoolResponse | undefined }) {

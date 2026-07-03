@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQueries } from "@tanstack/react-query";
 import { queryPairPool } from "../../lib/astroport/queries";
@@ -21,6 +22,10 @@ function positionStatus(position: PortfolioPosition) {
   return "LP estimate";
 }
 
+function MetricValue({ muted = false, children }: { muted?: boolean; children: ReactNode }) {
+  return <strong className={muted ? "metric-value metric-value-muted" : "metric-value"}>{children}</strong>;
+}
+
 function PortfolioPositionCard({ position }: { position: PortfolioPosition }) {
   const lpSymbol = `${position.pool.assets.map((asset) => asset.symbol).join("/")} LP`;
   const hasStaked = BigInt(position.stakedLpBalance ?? "0") > 0n;
@@ -39,17 +44,17 @@ function PortfolioPositionCard({ position }: { position: PortfolioPosition }) {
       <div className="lp-position-metrics">
         <div className="metric-card">
           <span>Total LP exposure</span>
-          <strong>{formatAmount(totalLpBalance(position), 6)} {lpSymbol}</strong>
+          <MetricValue>{formatAmount(totalLpBalance(position), 6)} {lpSymbol}</MetricValue>
           <details className="identifier-disclosure"><summary>LP token</summary><code>{position.pool.lpToken}</code></details>
         </div>
         <div className="metric-card">
           <span>Pool share</span>
-          <strong>{formatPositionSharePercent(position.shareBps)}</strong>
+          <MetricValue>{formatPositionSharePercent(position.shareBps)}</MetricValue>
           <code>{position.shareBps > 0 ? "Based on current position data" : "Share unavailable"}</code>
         </div>
         <div className="metric-card">
           <span>Position value</span>
-          <strong>{usd(position.valueUsd)}</strong>
+          <MetricValue muted={position.valueUsd === null}>{usd(position.valueUsd)}</MetricValue>
           <small>{position.valueUsd === null ? "Not counted in aggregate total" : "Priced with market data"}</small>
         </div>
       </div>
@@ -117,10 +122,9 @@ export function PortfolioPage() {
   return (
     <section className="panel-page portfolio-page">
       <div className="portfolio-hero">
-        <div>
+        <div className="portfolio-hero-lead">
           <p className="eyebrow">Portfolio</p>
           <h2>Wallet portfolio</h2>
-          <p>LP positions, claimable rewards, balances, and USD estimates across known Juno liquidity nodes.</p>
         </div>
         {walletAddress ? (
           <div className="portfolio-wallet-chip" aria-label="Connected wallet">
@@ -157,17 +161,17 @@ export function PortfolioPage() {
           <div className="lp-position-metrics portfolio-total-grid" aria-label="Portfolio totals">
             <div className="metric-card">
               <span>Total LP value</span>
-              <strong>{usd(portfolio.totalLpValueUsd)}</strong>
+              <MetricValue muted={portfolio.totalLpValueUsd === null}>{usd(portfolio.totalLpValueUsd)}</MetricValue>
               <small>{portfolio.missingPositionPrices ? `${portfolio.missingPositionPrices} position(s) missing USD prices` : "All positions priced"}</small>
             </div>
             <div className="metric-card">
               <span>Total claimable</span>
-              <strong>{usd(portfolio.totalClaimableUsd)}</strong>
+              <MetricValue muted={portfolio.totalClaimableUsd === null}>{usd(portfolio.totalClaimableUsd)}</MetricValue>
               <small>{portfolio.claimableRewardCount ? `${portfolio.claimableRewardCount} reward row(s)` : "No rewards found"}</small>
             </div>
             <div className="metric-card">
               <span>Known balances</span>
-              <strong>{portfolio.walletBalances.filter((balance) => BigInt(balance.amount || "0") > 0n).length}</strong>
+              <MetricValue>{portfolio.walletBalances.filter((balance) => BigInt(balance.amount || "0") > 0n).length}</MetricValue>
               <small>Non-zero known balances</small>
             </div>
           </div>

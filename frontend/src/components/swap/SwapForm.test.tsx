@@ -195,7 +195,7 @@ describe("SwapForm", () => {
     expect(screen.getByRole("button", { name: /route preview unavailable/i }).hasAttribute("disabled")).toBe(true);
   });
 
-  it("requires explicit confirmation for high-impact direct quotes", () => {
+  it("swaps high-impact direct quotes without a separate confirmation gate", () => {
     mocks.quote = {
       data: { return_amount: "1000", spread_amount: "1000", commission_amount: "3", source: "pair", route: directRoute() },
       isSuccess: true,
@@ -205,8 +205,7 @@ describe("SwapForm", () => {
     };
 
     render(<SwapForm pool={pool} />);
-    expect(screen.getByRole("button", { name: /confirm high price impact/i }).hasAttribute("disabled")).toBe(true);
-    fireEvent.click(screen.getByLabelText(/i understand this quote has high price impact/i));
+    expect(screen.queryByLabelText(/i understand this quote has high price impact/i)).toBeNull();
     expect(screen.getByRole("button", { name: /^swap$/i }).hasAttribute("disabled")).toBe(false);
   });
 

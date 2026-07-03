@@ -107,21 +107,21 @@ code { color: var(--cream-dim); overflow-wrap: anywhere; font-family: var(--font
 }
 
 .brand-logo {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   object-fit: contain;
-  filter: drop-shadow(0 0 16px rgba(255, 123, 124, 0.26));
+  filter: drop-shadow(0 0 14px rgba(255, 123, 124, 0.24));
 }
 
-.brand-copy { display: grid; gap: 5px; min-width: 0; }
-.brand-title { display: inline-flex; align-items: end; gap: 9px; line-height: 1; }
-.brand-title img { width: 76px; height: auto; display: block; }
+.brand-lockup { gap: 10px; }
+.brand-copy { display: inline-flex; align-items: center; min-width: 0; }
+.brand-title { display: inline-flex; align-items: center; gap: 8px; line-height: 1; }
+.brand-title img { height: 13px; width: auto; display: block; }
 .brand-title span {
   font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   letter-spacing: 0.2em;
   color: var(--cream-faint);
-  padding-bottom: 1px;
 }
 
 .brand-lockup:focus-visible,
@@ -150,9 +150,10 @@ select:focus-visible {
 
 .hero-panel h2,
 .panel-page h2 {
-  margin-bottom: 14px;
-  font-size: clamp(2rem, 4vw, 3.5rem);
-  line-height: 1.02;
+  margin-bottom: 12px;
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
 }
 
 .context-panel h2,
@@ -191,26 +192,25 @@ select:focus-visible {
   gap: 16px;
   padding: 0 22px;
   border-bottom: 1px solid var(--line-hair);
-  background: rgba(27, 7, 8, 0.94);
-  backdrop-filter: blur(12px);
+  background: var(--maroon-deep);
 }
 
 .topbar-coord {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   margin: 0;
-  color: var(--cream-dim);
+  color: var(--coral);
   font-family: var(--font-mono);
   font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-weight: 400;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
 }
 
 .topbar-coord::before {
   content: "";
-  width: 7px;
+  width: 14px;
   height: 1px;
   display: inline-block;
   background: var(--coral);
@@ -243,7 +243,23 @@ select:focus-visible {
   width: 100%;
   display: flex;
   align-items: center;
+  gap: 10px;
 }
+
+.nav-link-icon {
+  flex: none;
+  color: var(--cream-faint);
+  transition: color 0.15s ease;
+}
+
+.nav-link:hover .nav-link-icon { color: var(--cream-mute); }
+
+.nav-link.active .nav-link-icon,
+.nav-link[aria-current="page"] .nav-link-icon {
+  color: var(--coral);
+}
+
+.nav-link-label { min-width: 0; }
 
 .nav-link:hover,
 .mode-tab:hover,
@@ -330,15 +346,33 @@ select:focus-visible {
   gap: 12px;
 }
 
+.sidebar-network span { color: var(--cream-faint); }
+
 .sidebar-network strong {
-  color: var(--coral);
-  font-weight: 700;
+  color: var(--cream-dim);
+  font-weight: 400;
+}
+
+.sidebar-network .net-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--signal-ok);
+}
+
+.net-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal-ok);
+  box-shadow: 0 0 8px var(--signal-ok);
 }
 
 .settings-panel {
   position: absolute;
   right: 22px;
   top: calc(100% - 8px);
+  z-index: 200;
   width: min(420px, calc(100vw - 32px));
   padding: 16px;
   border: 1px solid var(--line-strong);
@@ -414,6 +448,11 @@ select:focus-visible {
   grid-row: 3;
   min-width: 0;
   padding: 28px;
+  background-color: var(--maroon);
+  background-image:
+    linear-gradient(var(--coral-a04) 1px, transparent 1px),
+    linear-gradient(90deg, var(--coral-a04) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
 
 .page-grid,
@@ -505,19 +544,30 @@ select:focus-visible {
   font-weight: 700;
 }
 
-.market-card-header strong {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid rgba(143, 176, 138, 0.45);
-  border-radius: var(--r-sm, 3px);
-  padding: 6px 9px;
-  color: var(--signal-ok);
-  background: rgba(143, 176, 138, 0.08);
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.market-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  text-align: right;
 }
+
+.market-price strong {
+  color: var(--cream);
+  font-family: var(--font-display, var(--font-heading));
+  font-weight: 500;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+.market-change {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.market-change.up { color: var(--signal-ok); }
+.market-change.down { color: var(--coral-bright, var(--coral)); }
 
 .market-sparkline {
   height: 88px;
@@ -544,7 +594,7 @@ select:focus-visible {
 
 .market-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   margin-top: 14px;
 }
@@ -556,7 +606,7 @@ select:focus-visible {
 }
 
 .market-stats small,
-.transmission-row small {
+.transaction-row small {
   color: var(--cream-faint);
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -570,15 +620,15 @@ select:focus-visible {
   font-size: 0.8rem;
 }
 
-.transmission-list {
+.transaction-list {
   display: grid;
   gap: 10px;
   margin-top: 14px;
 }
 
-.transmission-row {
+.transaction-row {
   display: grid;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   color: var(--cream-dim);
@@ -586,17 +636,23 @@ select:focus-visible {
   font-size: 0.72rem;
 }
 
-.transmission-row > span {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--coral);
-  box-shadow: var(--glow-soft);
+.transaction-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 0.72rem;
+  line-height: 1;
+  color: var(--coral);
 }
 
-.transmission-row strong {
+.transaction-kind.add { color: var(--signal-ok); }
+
+.transaction-row strong {
   min-width: 0;
   color: var(--cream-dim);
+  font-weight: 400;
   font-size: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -912,15 +968,19 @@ button:disabled { cursor: not-allowed; opacity: 0.48; box-shadow: none; }
   display: inline-flex !important;
   align-items: center !important;
   gap: 8px !important;
-  min-height: 34px;
-  padding: 7px 11px !important;
-  background: var(--coral-a08) !important;
-  color: var(--coral) !important;
+  min-height: 32px;
+  padding: 6px 12px !important;
+  background: transparent !important;
+  color: var(--cream) !important;
   border-color: var(--line-soft) !important;
   box-shadow: none;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 400 !important;
+  font-size: 0.72rem !important;
 }
 .wallet-button.connected:hover {
-  background: var(--coral-a12) !important;
+  background: var(--coral-a04) !important;
   border-color: var(--line-strong) !important;
 }
 .wallet-status-dot,
@@ -2018,8 +2078,8 @@ button:disabled { cursor: not-allowed; opacity: 0.48; box-shadow: none; }
   .app-header {
     padding: 10px;
   }
-  .brand-logo { width: 30px; height: 30px; }
-  .brand-title img { width: 82px; }
+  .brand-logo { width: 24px; height: 24px; }
+  .brand-title img { height: 14px; width: auto; }
   .eyebrow { font-size: 0.62rem; }
   .topbar-actions { gap: 8px; }
   .topbar-actions .status-pill {

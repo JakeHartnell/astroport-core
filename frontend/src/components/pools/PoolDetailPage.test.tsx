@@ -115,9 +115,7 @@ describe("PoolDetailPage", () => {
     expect(screen.getByText(/28.57% of token units/i)).toBeTruthy();
     expect(screen.getByText(/1 JUNO ≈ 2.5 USDC/i)).toBeTruthy();
     expect(screen.getByText(/Your pool share = wallet LP balance ÷ total LP shares/i)).toBeTruthy();
-    expect(screen.getByRole("link", { name: /swap/i }).getAttribute("href")).toBe("/swap");
-    expect(screen.getByRole("link", { name: /add liquidity/i }).getAttribute("href")).toBe("#add-liquidity");
-    expect(screen.getByRole("link", { name: /remove liquidity/i }).getAttribute("href")).toBe("#remove-liquidity");
+    expect(screen.getByRole("link", { name: /back to pools/i }).getAttribute("href")).toBe("/pools");
     expect(screen.getByText("Show token ID")).toBeTruthy();
   });
 
