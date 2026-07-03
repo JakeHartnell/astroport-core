@@ -118,7 +118,6 @@ export function CreatePoolPage() {
             <Text as="p" className="eyebrow">1 · Assets</Text>
             <Text as="h2" variant="heading">Select pair assets</Text>
           </Box>
-          <span className="status-pill status-warn">No initial liquidity is added by this transaction · seed on the pool page next</span>
         </Stack>
         <Stack className="form-grid" direction="horizontal" align="flex-end">
           <TokenSelect assets={selectableAssets} value={assetA?.id ?? ""} onChange={setAssetAId} label="First asset" disabledIds={assetB ? [assetB.id] : []} />
@@ -130,9 +129,9 @@ export function CreatePoolPage() {
           </div>
         ) : null}
 
-        <fieldset className="custom-asset-box">
+        <fieldset className="custom-asset-box create-custom-asset-box">
           <legend>Arbitrary denom / CW20</legend>
-          <label className="risk-acknowledgement"><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /> Add a custom unverified asset</label>
+          <label className="risk-acknowledgement custom-asset-toggle"><input type="checkbox" checked={draft.enabled} onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))} /> Add a custom unverified asset</label>
           {draft.enabled ? (
             <div className="pool-list-controls custom-asset-grid">
               <label>Side<select value={draft.side} onChange={(event) => setDraft((current) => ({ ...current, side: event.target.value as CustomAssetDraft["side"] }))}><option value="a">First asset</option><option value="b">Second asset</option></select></label>
@@ -153,9 +152,12 @@ export function CreatePoolPage() {
             {options.map((option) => (
               <label className={`metric-card create-pool-type${option.id === poolType ? " active" : ""}${option.disabled ? " disabled" : ""}`} key={option.id}>
                 <input type="radio" name="pool-type" value={option.id} checked={option.id === poolType} onChange={() => setPoolType(option.id)} />
-                <strong>{option.label}</strong>
-                <span>{feeLabel(option.feeBps)}</span>
-                {option.unsupportedReason ? <small className="error-text">{option.unsupportedReason}</small> : <small>Factory configured for permissionless create_pair.</small>}
+                <span className="create-pool-type-radio" aria-hidden="true" />
+                <span className="create-pool-type-copy">
+                  <strong>{option.label}</strong>
+                  <span>{feeLabel(option.feeBps)}</span>
+                  {option.unsupportedReason ? <small className="error-text">{option.unsupportedReason}</small> : <small>Factory configured for permissionless create_pair.</small>}
+                </span>
               </label>
             ))}
           </div>
@@ -163,7 +165,6 @@ export function CreatePoolPage() {
 
         {localDuplicate ? <div className="empty-state"><strong>Existing pool detected.</strong> <a href={`/pools/${localDuplicate.pair}`}>Open {localDuplicate.label}</a> instead of creating a duplicate.</div> : null}
         {duplicateQuery.isFetching ? <p>Checking factory for an existing pair…</p> : null}
-        {duplicateQuery.isError ? <ErrorState title="Duplicate pool check unavailable" error="Creation is blocked until the factory duplicate check can confirm this pair does not already exist." onRetry={() => void duplicateQuery.refetch()} /> : null}
         <div className="empty-state compact"><strong>Guardrails</strong><ul>{validation.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></div>
         <RiskAcknowledgement assessment={validation.risk} checked={riskAcknowledged} onChange={setRiskAcknowledged} action="pool creation" />
         {network.isWrongNetwork ? <Text as="p" className="error-text">Transactions are blocked while your wallet is off Juno mainnet.</Text> : null}

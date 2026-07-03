@@ -35,13 +35,13 @@ describe("QuoteCard layout", () => {
     render(<QuoteCard quote={quote} askAsset={askAsset} isLoading={false} slippageBps={50} />);
 
     fireEvent.click(screen.getByRole("button", { name: /quote details/i }));
-    const detailsLabel = screen.getAllByText("Return").find((element) => element.tagName === "DT");
+    const detailsLabel = screen.getAllByText("Route").find((element) => element.tagName === "DT");
     const details = detailsLabel?.closest("dl");
     expect(details?.className).toBe("quote-details");
-    expect(screen.getByText(pool.pair).closest("dd")?.className).toBe("quote-detail-value");
+    expect(screen.getByText(/JUNO → JUNOAGENT-TEST/i).closest("dd")?.className).toBe("quote-detail-value");
   });
 
-  it("renders stable/PCL contract-simulation caveats instead of claiming local invariant math", () => {
+  it("keeps quote details compact for stable/PCL routes", () => {
     const pool = { ...dexRegistry.pools[0], type: "stable" as const };
     const askAsset = pool.assets[1];
     const quote: RouteQuote = {
@@ -61,7 +61,9 @@ describe("QuoteCard layout", () => {
     render(<QuoteCard quote={quote} askAsset={askAsset} isLoading={false} slippageBps={50} />);
 
     fireEvent.click(screen.getByRole("button", { name: /quote details/i }));
-    expect(screen.getAllByText(/contract-simulated/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Stable pool math is not recomputed locally/i)).toBeTruthy();
+    expect(screen.getByText("Network fee")).toBeTruthy();
+    expect(screen.getByText("Max slippage")).toBeTruthy();
+    expect(screen.queryByText(/contract-simulated/i)).toBeNull();
+    expect(screen.queryByText(/pool math is not recomputed locally/i)).toBeNull();
   });
 });

@@ -30,7 +30,7 @@ export function Modal({ open, title, children, onClose }: { open: boolean; title
   if (!open) return null;
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <section ref={cardRef} className="modal-card" role="dialog" aria-modal="true" aria-labelledby={titleId} onClick={(event) => event.stopPropagation()} onKeyDown={handleKeyDown}>
+      <section ref={cardRef} className="modal-card" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(event) => event.stopPropagation()} onKeyDown={handleKeyDown}>
         <div className="modal-header">
           <h2 id={titleId}>{title}</h2>
           <button type="button" aria-label="Close modal" onClick={onClose}>×</button>

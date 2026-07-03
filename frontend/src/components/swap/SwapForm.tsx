@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Box, Button, Stack, Text } from "@interchain-ui/react";
-import { dexRegistry, type RegistryAsset, type RegistryPool } from "../../config/registry";
+import { type RegistryAsset, type RegistryPool } from "../../config/registry";
 import type { SwapQuoteMode } from "../../lib/astroport/queries";
 import { formatAmount, isBaseAmountGreaterThan, parseTokenAmount } from "../../lib/format/amounts";
 import { assessRouteRisk } from "../../lib/risk";
@@ -10,7 +10,8 @@ import { useSwapQuote } from "../../queries/useSwapQuote";
 import { getWalletBalanceAmount, useWalletBalances } from "../../queries/useWalletBalances";
 import { useSlippageSettings } from "../../settings/SlippageSettingsContext";
 import { useNetworkGuard, useWallet } from "../../wallet/WalletContext";
-import { RiskAcknowledgement, TokenAmountInput, TokenLogo } from "../common";
+import { RiskAcknowledgement, TokenAmountInput } from "../common";
+import { SettingsPanel } from "../settings/SettingsPanel";
 import { TxStatusDialog } from "../tx/TxStatusDialog";
 import { QuoteCard } from "./QuoteCard";
 import { TokenSelect } from "./TokenSelect";
@@ -53,6 +54,7 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
   const [quoteMode, setQuoteMode] = useState<SwapQuoteMode>("exact-in");
   const [highImpactConfirmed, setHighImpactConfirmed] = useState(false);
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { slippageBps, formattedSlippagePercent, maxSpread } = useSlippageSettings();
   const offerAsset = selectableAssets.find((asset) => asset.id === offerId) ?? pool.assets[0];
   const askAsset = selectableAssets.find((asset) => asset.id === askId && asset.id !== offerAsset.id) ?? selectableAssets.find((asset) => asset.id !== offerAsset.id) ?? pool.assets[1];
@@ -70,12 +72,7 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
   const hasAmount = activeParsedAmount.isValid && isPositiveBaseAmount(quoteInputBaseAmount);
   const sameToken = offerAsset.id === askAsset.id;
   const exceedsBalance = Boolean(offerBalance && isPositiveBaseAmount(requiredOfferBaseAmount) && isBaseAmountGreaterThan(requiredOfferBaseAmount, offerBalance));
-  const quoteReady = quote.isSuccess && Boolean(quote.data) && !quote.isFetching && !quote.isError && !quote.isDebouncing && !quote.isExpired;
-  const receiveAmount = quote.data
-    ? `${formatAmount(quote.data.return_amount, askAsset.decimals)} ${askAsset.symbol}`
-    : quoteMode === "exact-out" && parsedAskInput.isValid && isPositiveBaseAmount(parsedAskInput.baseAmount)
-      ? `${askAmount} ${askAsset.symbol}`
-      : "—";
+  const quoteReady = quote.isSuccess && Boolean(quote.data) && !quote.isFetching && !quote.isError && !quote.isDebouncing;
   const priceImpact = quote.data && quote.data.source === "pair" ? getPriceImpact({ spreadAmount: quote.data.spread_amount, returnAmount: quote.data.return_amount }) : null;
   const requiresHighImpactConfirm = priceImpact?.severity === "high";
   const selectedRoute = quote.data?.route;
@@ -96,17 +93,15 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
             ? `Insufficient ${offerAsset.symbol} balance`
             : quote.isError
               ? "Route preview unavailable"
-              : quote.isExpired
-                ? "Quote expired — refresh"
-                : quote.isFetching || (hasAmount && !quoteReady)
-                  ? "Refreshing route…"
-                  : !selectedRoute
-                    ? "No route found"
-                    : requiresHighImpactConfirm && !highImpactConfirmed
-                      ? "Confirm high price impact"
-                      : routeRisk.requiresAcknowledgement && !riskAcknowledged
-                        ? "Acknowledge unverified route"
-                        : undefined;
+              : quote.isFetching || (hasAmount && !quoteReady)
+                ? "Refreshing route…"
+                : !selectedRoute
+                  ? "No route found"
+                  : requiresHighImpactConfirm && !highImpactConfirmed
+                    ? "Confirm high price impact"
+                    : routeRisk.requiresAcknowledgement && !riskAcknowledged
+                      ? "Acknowledge unverified route"
+                      : undefined;
   const submitDisabled = wallet.status !== "connected"
     || !network.isJunoReady
     || network.isWrongNetwork
@@ -165,54 +160,56 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
     <Stack className="swap-card" direction="vertical" space="6">
       <Stack className="swap-card-header" direction="horizontal" align="center" justify="space-between" flexWrap="wrap">
         <Box>
-          <Text as="p" className="eyebrow">Smart swap</Text>
           <Text as="h2" variant="heading">Swap</Text>
         </Box>
-        <Button variant="outlined" intent="secondary" size="sm" className="slippage-pill" domAttributes={{ type: "button", title: `Swap max_spread ${maxSpread}` }}>Slippage {formattedSlippagePercent}%</Button>
+        <div className="swap-settings">
+          <button
+            className="icon-button slippage-icon-button"
+            type="button"
+            aria-label={`Slippage ${formattedSlippagePercent}%`}
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen((open) => !open)}
+            title={`Swap max_spread ${maxSpread}`}
+          >
+            <span className="slippage-icon" aria-hidden="true" />
+          </button>
+          {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
+        </div>
       </Stack>
-      <Box className="mode-tabs" aria-label="Trade mode">
-        <span className={`mode-tab ${quote.data?.source === "pair" ? "active" : ""}`}>Direct pair</span>
-        <span className={`mode-tab ${quote.data?.source === "router" ? "active" : dexRegistry.router ? "" : "disabled"}`} title={dexRegistry.router ? "Router is used when it returns the best route" : "Router contract is not configured"}>Router</span>
-      </Box>
       <div className="swap-amount-stack">
         <Stack className="asset-amount-card" direction="vertical" space="4">
-          <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>From {quoteMode === "exact-out" ? "· required input" : ""}</span><strong className="asset-card-token"><TokenLogo asset={offerAsset} size="sm" /> {offerAsset.name ?? offerAsset.symbol}</strong></Stack>
           <Stack className="form-grid" direction="horizontal" align="flex-end">
             <TokenAmountInput
-              label={quoteMode === "exact-out" ? "Required amount" : "Amount"}
+              label="You pay"
               value={quoteMode === "exact-out" && quote.data ? formatAmount(quote.data.offer_amount, offerAsset.decimals) : amount}
               decimals={offerAsset.decimals}
               symbol={offerAsset.symbol}
               balanceBaseAmount={offerBalance}
               onChange={updateOfferAmount}
-              fiatHint={<span>{quoteMode === "exact-out" && quote.data ? "Calculated from reverse simulation" : "USD hint pending oracle wiring"}</span>}
+              fiatHint={quoteMode === "exact-out" && quote.data ? <span>Required input</span> : undefined}
+              showQuickActions={false}
+              showTokenIdentity={false}
             />
-            <TokenSelect assets={selectableAssets} value={offerId} onChange={handleOfferChange} label="From asset" balances={balances.data} />
+            <TokenSelect assets={selectableAssets} value={offerId} onChange={handleOfferChange} label="From asset" balances={balances.data} showIdentifier={false} hideLabel />
           </Stack>
-          <code>{offerAsset.id}</code>
         </Stack>
         <Button variant="outlined" intent="secondary" size="sm" className="swap-direction" onClick={handleFlip} domAttributes={{ type: "button", title: "Flip swap direction" }}>↓</Button>
         <Stack className="asset-amount-card receive-card" direction="vertical" space="4">
-          <Stack className="asset-card-topline" direction="horizontal" justify="space-between"><span>To {quoteMode === "exact-out" ? "· exact receive" : "· estimated receive"}</span><strong className="asset-card-token"><TokenLogo asset={askAsset} size="sm" /> {askAsset.name ?? askAsset.symbol}</strong></Stack>
-          <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== offerAsset.id)} value={askAsset.id} onChange={(next) => { setAskId(next); setQuoteMode("exact-in"); }} label="To asset" balances={balances.data} />
-          <TokenAmountInput
-            label={quoteMode === "exact-out" ? "Exact receive" : "Estimated receive"}
-            value={quoteMode === "exact-out" ? askAmount : quote.data ? formatAmount(quote.data.return_amount, askAsset.decimals) : ""}
-            decimals={askAsset.decimals}
-            symbol={askAsset.symbol}
-            onChange={updateAskAmount}
-            fiatHint={<span>{receiveAmount}</span>}
-          />
-          <code>{askAsset.id}</code>
+          <Stack className="form-grid" direction="horizontal" align="flex-end">
+            <TokenAmountInput
+              label="You receive"
+              value={quoteMode === "exact-out" ? askAmount : quote.data ? formatAmount(quote.data.return_amount, askAsset.decimals) : ""}
+              decimals={askAsset.decimals}
+              symbol={askAsset.symbol}
+              onChange={updateAskAmount}
+              showQuickActions={false}
+              showTokenIdentity={false}
+            />
+            <TokenSelect assets={selectableAssets.filter((asset) => asset.id !== offerAsset.id)} value={askAsset.id} onChange={(next) => { setAskId(next); setQuoteMode("exact-in"); }} label="To asset" balances={balances.data} showIdentifier={false} hideLabel />
+          </Stack>
         </Stack>
       </div>
-      <QuoteCard quote={quote.data} askAsset={askAsset} offerAsset={offerAsset} isLoading={quote.isFetching || quote.isDebouncing} error={quote.error} slippageBps={slippageBps} updatedAt={quote.quoteUpdatedAt} expiresInMs={quote.expiresInMs} isExpired={quote.isExpired} onRefresh={() => void quote.refreshQuote()} />
-      {quote.data?.source === "router" ? (
-        <div className="price-impact-warning" role="status">Multi-hop routes touch multiple pools and may have higher execution risk. The router quote includes per-hop fees, but aggregate price impact is not exposed by this contract query.</div>
-      ) : null}
-      {selectedRoute?.hops.some((hop) => hop.pool.type !== "xyk") ? (
-        <div className="price-impact-warning" role="status">Stable and PCL swaps rely on on-chain simulation for invariant math. The app displays contract-returned pricing and disables unsupported local liquidity math.</div>
-      ) : null}
+      <QuoteCard quote={quote.data} askAsset={askAsset} offerAsset={offerAsset} isLoading={quote.isFetching || quote.isDebouncing} error={quote.error} slippageBps={slippageBps} updatedAt={quote.quoteUpdatedAt} />
       {priceImpact?.severity === "warning" ? (
         <div className="price-impact-warning" role="status">Price impact is elevated at {formatBpsPercent(priceImpact.bps)}. Review size and pool liquidity before swapping.</div>
       ) : null}
@@ -227,10 +224,6 @@ export function SwapForm({ pool, pools }: SwapFormProps) {
       {validationError && wallet.status === "connected" && !network.isWrongNetwork ? <Text as="p" className="error-text">{validationError}</Text> : null}
       {swapTx.isError ? <Text as="p" className="error-text">{swapTx.error instanceof Error ? swapTx.error.message : "Swap failed"}</Text> : null}
       {swapTx.isSuccess ? <Text as="p" className="success-text">Swap transaction broadcast. Balances, route quote, and pool reserves are refreshing.</Text> : null}
-      <Box className="empty-state compact">
-        <strong>Review your route</strong>
-        <p>Review route hops, fees, price impact, and slippage before signing.</p>
-      </Box>
       <TxStatusDialog state={swapTx.txState} />
       <Button intent="primary" className="primary-action" disabled={submitDisabled} fluidWidth onClick={handleSwap} domAttributes={{ type: "button" }}>{actionCopy}</Button>
     </Stack>

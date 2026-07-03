@@ -14,12 +14,10 @@ import {
   type PoolVerifiedFilter,
 } from "../../lib/pools/poolList";
 import type { PoolMetrics } from "../../lib/pools/poolList";
-import { getPoolTypeMetadata } from "../../lib/pools/poolTypes";
-import { assessPoolRisk } from "../../lib/risk";
 import { usePoolMetrics } from "../../queries/usePools";
 import { getWalletBalanceAmount, useWalletBalances, type WalletBalance } from "../../queries/useWalletBalances";
 import { useWallet } from "../../wallet/WalletContext";
-import { EmptyState, ErrorState, RiskBadgeList, TokenLogo } from "../common";
+import { EmptyState, TokenLogo } from "../common";
 
 export function PoolTable({ pools }: { pools: RegistryPool[] }) {
   const [controls, setControls] = useState<PoolListControls>(DEFAULT_POOL_LIST_CONTROLS);
@@ -39,17 +37,13 @@ export function PoolTable({ pools }: { pools: RegistryPool[] }) {
   return (
     <div className="pool-list-shell">
       <PoolListControls controls={controls} onChange={setControls} />
-      <p className="pool-metrics-copy">Browse pools by liquidity, volume, APR, type, and wallet position.</p>
-      {metrics.access?.error ? <ErrorState title="Pool metrics unavailable" error="Some liquidity, volume, and APR metrics are temporarily unavailable." onRetry={() => void metrics.refetch()} /> : null}
       <div className="pool-table" role="table" aria-label="Juno pools">
         <div className="pool-table-header" role="row">
           <span role="columnheader">Pool</span>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "tvl"))}>TVL</button>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "volume"))}>24h volume</button>
           <button type="button" onClick={() => setControls((current) => toggleSort(current, "apr"))}>APR</button>
-          <span role="columnheader">Type</span>
           <span role="columnheader">Your position</span>
-          <span role="columnheader">Actions</span>
         </div>
         {visiblePools.map((pool) => (
           <PoolRow
@@ -125,11 +119,9 @@ function toggleSort(controls: PoolListControls, sortKey: PoolListSortKey): PoolL
 }
 
 function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metrics?: PoolMetrics; balances?: readonly WalletBalance[]; access?: DataAccessState }) {
-  const risk = assessPoolRisk(pool);
   const lpBalance = getWalletBalanceAmount(balances, pool.lpToken);
-  const poolType = getPoolTypeMetadata(pool.type);
   return (
-    <article className="pool-row" role="row">
+    <Link className="pool-row" role="row" to={`/pools/${pool.pair}`} aria-label={`Open ${pool.label} pool details`}>
       <div className="pool-main" role="cell">
         <div className="pool-title-line">
           <span className="pool-token-stack" aria-hidden="true">
@@ -137,29 +129,17 @@ function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metr
           </span>
           <div className="pool-title-copy">
             <strong>{pool.label}</strong>
-            <small>{poolType.shortLabel} · {pool.feeBps} bps</small>
           </div>
-          <RiskBadgeList assessment={risk} max={2} />
-          {metrics?.incentivized || (metrics?.incentivesApr ?? 0) > 0 ? <span className="status-pill status-ok">incentivized</span> : null}
         </div>
       </div>
       <MetricCell label="TVL" value={formatUsd(metrics?.tvlUsd)} metrics={metrics} access={access} />
       <MetricCell label="24h volume" value={formatUsd(metrics?.volume24hUsd)} metrics={metrics} access={access} />
       <MetricCell label="APR" value={formatApr(getPoolTotalApr(metrics))} metrics={metrics} access={access} />
-      <div className="pool-meta" role="cell">
-        <span>Type</span>
-        <strong>{poolType.shortLabel}</strong>
-      </div>
       <div className="pool-position" role="cell">
         <span>Your position</span>
         <strong>{lpBalance && lpBalance !== "0" ? formatAmount(lpBalance, 6) : "No LP detected"}</strong>
       </div>
-      <div className="pool-actions" role="cell">
-        <Link to="/swap">Swap</Link>
-        <Link to={`/pools/${pool.pair}`}>Add</Link>
-        <Link to={`/pools/${pool.pair}`}>Details</Link>
-      </div>
-    </article>
+    </Link>
   );
 }
 

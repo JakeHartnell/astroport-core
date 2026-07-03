@@ -168,7 +168,7 @@ describe("SwapForm", () => {
       source: "router",
       minimumReceive: "965150",
     }));
-    expect(screen.getByText(/multi-hop routes touch multiple pools/i)).toBeTruthy();
+    expect(screen.queryByText(/multi-hop routes touch multiple pools/i)).toBeNull();
   });
 
   it("disables swap without a connected wallet", () => {

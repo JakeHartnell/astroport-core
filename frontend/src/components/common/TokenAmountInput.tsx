@@ -13,6 +13,8 @@ export type TokenAmountInputProps = {
   tokenSlot?: ReactNode;
   fiatHint?: ReactNode;
   disabled?: boolean;
+  showQuickActions?: boolean;
+  showTokenIdentity?: boolean;
 };
 
 function halfBaseAmount(balanceBaseAmount: string): string {
@@ -31,6 +33,8 @@ export function TokenAmountInput({
   tokenSlot,
   fiatHint,
   disabled,
+  showQuickActions = true,
+  showTokenIdentity = true,
 }: TokenAmountInputProps) {
   const parsed = parseTokenAmount(value, decimals);
   const hasBalance = typeof balanceBaseAmount === "string";
@@ -50,11 +54,13 @@ export function TokenAmountInput({
         <span>{label}</span>
         <span className="token-balance">Balance: {balanceCopy}</span>
       </div>
-      <div className="token-amount-row">
-        <div className="token-identity">
-          {tokenSlot ? <span className="token-logo-slot">{tokenSlot}</span> : <span className="token-logo-fallback">{symbol.slice(0, 2)}</span>}
-          <strong>{symbol}</strong>
-        </div>
+      <div className={`token-amount-row${showTokenIdentity ? "" : " token-amount-row-compact"}`}>
+        {showTokenIdentity ? (
+          <div className="token-identity">
+            {tokenSlot ? <span className="token-logo-slot">{tokenSlot}</span> : <span className="token-logo-fallback">{symbol.slice(0, 2)}</span>}
+            <strong>{symbol}</strong>
+          </div>
+        ) : null}
         <input
           aria-label={`${label} amount`}
           inputMode="decimal"
@@ -67,11 +73,17 @@ export function TokenAmountInput({
           placeholder="0.0"
         />
       </div>
-      <div className="token-amount-actions">
-        <button type="button" disabled={!hasBalance || disabled} onClick={() => balanceBaseAmount && applyBaseAmount(halfBaseAmount(balanceBaseAmount), onHalf)}>Half</button>
-        <button type="button" disabled={!hasBalance || disabled} onClick={() => balanceBaseAmount && applyBaseAmount(balanceBaseAmount, onMax)}>MAX</button>
-        <span className="fiat-hint">{fiatHint}</span>
-      </div>
+      {showQuickActions || fiatHint ? (
+        <div className="token-amount-actions">
+          {showQuickActions ? (
+            <>
+              <button type="button" disabled={!hasBalance || disabled} onClick={() => balanceBaseAmount && applyBaseAmount(halfBaseAmount(balanceBaseAmount), onHalf)}>Half</button>
+              <button type="button" disabled={!hasBalance || disabled} onClick={() => balanceBaseAmount && applyBaseAmount(balanceBaseAmount, onMax)}>MAX</button>
+            </>
+          ) : null}
+          {fiatHint ? <span className="fiat-hint">{fiatHint}</span> : null}
+        </div>
+      ) : null}
       {error ? <p className="field-error" role="alert">{error}</p> : null}
     </section>
   );

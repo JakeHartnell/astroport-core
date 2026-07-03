@@ -10,7 +10,6 @@ import { useWalletIndexerData } from "../../queries/usePools";
 import { useWalletBalances } from "../../queries/useWalletBalances";
 import { useWallet } from "../../wallet/WalletContext";
 import { EmptyState, ErrorState, Skeleton } from "../common";
-import { WalletAddressActions } from "../wallet/WalletAddressActions";
 
 function usd(value: number | null) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "USD price unavailable";
@@ -116,12 +115,21 @@ export function PortfolioPage() {
   const reserveError = reserveQueries.find((query) => query.isError)?.error;
   const isLoading = Boolean(walletAddress) && (balances.isLoading || indexerData.isLoading || reserveQueries.some((query) => query.isLoading));
   return (
-    <section className="panel-page">
-      <p className="eyebrow">Portfolio</p>
-      <h2>Wallet portfolio</h2>
-      <p>View LP positions, wallet balances, rewards, and estimated USD value in one place.</p>
+    <section className="panel-page portfolio-page">
+      <div className="portfolio-hero">
+        <div>
+          <p className="eyebrow">Portfolio</p>
+          <h2>Wallet portfolio</h2>
+          <p>LP positions, claimable rewards, balances, and USD estimates across known Juno liquidity nodes.</p>
+        </div>
+        {walletAddress ? (
+          <div className="portfolio-wallet-chip" aria-label="Connected wallet">
+            <span />
+            <code title={walletAddress}>{wallet.name ?? truncateAddress(walletAddress)}</code>
+          </div>
+        ) : null}
+      </div>
       {discovery.isError ? <ErrorState title="Factory discovery unavailable" error="Showing curated registry fallback only; unknown factory pairs are not fabricated." onRetry={() => void discovery.refetch()} /> : null}
-      {walletAddress ? <div className="contract-strip"><span>Wallet</span><WalletAddressActions address={walletAddress} /></div> : null}
       {!walletAddress ? <p className="pool-metrics-copy">Connect a wallet to view LP positions, balances, rewards, and USD value.</p> : null}
       {walletAddress && indexerData.access?.error ? <ErrorState title="Portfolio details unavailable" error="Some USD, rewards, and staked position details are temporarily unavailable." onRetry={() => void indexerData.refetch()} /> : null}
 
@@ -146,9 +154,9 @@ export function PortfolioPage() {
         </div>
       ) : (
         <>
-          <div className="lp-position-metrics" aria-label="Portfolio totals">
+          <div className="lp-position-metrics portfolio-total-grid" aria-label="Portfolio totals">
             <div className="metric-card">
-                  <span>Total LP value</span>
+              <span>Total LP value</span>
               <strong>{usd(portfolio.totalLpValueUsd)}</strong>
               <small>{portfolio.missingPositionPrices ? `${portfolio.missingPositionPrices} position(s) missing USD prices` : "All positions priced"}</small>
             </div>
@@ -158,7 +166,7 @@ export function PortfolioPage() {
               <small>{portfolio.claimableRewardCount ? `${portfolio.claimableRewardCount} reward row(s)` : "No rewards found"}</small>
             </div>
             <div className="metric-card">
-              <span>Wallet balances</span>
+              <span>Known balances</span>
               <strong>{portfolio.walletBalances.filter((balance) => BigInt(balance.amount || "0") > 0n).length}</strong>
               <small>Non-zero known balances</small>
             </div>

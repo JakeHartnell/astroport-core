@@ -1,19 +1,18 @@
 import { useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import junoLogo from "../../assets/juno-logo-salmon.svg";
 import junoWordmark from "../../assets/juno-wordmark-salmon.svg";
 import { navigationItems } from "../../app/routes";
 import { WalletProvider } from "../../wallet/WalletContext";
-import { ChainStatusBadge } from "../wallet/ChainStatusBadge";
 import { NetworkGuardBanner } from "../wallet/NetworkGuardBanner";
 import { WalletConnectButton } from "../wallet/WalletConnectButton";
-import { SettingsPanel } from "../settings/SettingsPanel";
 import { SlippageSettingsProvider } from "../../settings/SlippageSettingsContext";
-import { dexRegistry } from "../../config/registry";
 
 export function DexShell({ children }: { children: ReactNode }) {
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const location = useLocation();
+  const currentRoute = navigationItems.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
+  const pageTitle = currentRoute?.label ?? "Swap";
 
   return (
     <WalletProvider>
@@ -53,19 +52,9 @@ export function DexShell({ children }: { children: ReactNode }) {
         </header>
 
         <div className="app-topbar">
-          <span className="eyebrow topbar-coord">Δ.4.0.0 · routing station</span>
+          <span className="eyebrow topbar-coord">{pageTitle}</span>
           <div className="topbar-actions">
-            <ChainStatusBadge rpcEndpoint={dexRegistry.rpcEndpoint} />
             <WalletConnectButton />
-            <button
-              className="icon-button"
-              type="button"
-              aria-label="Open settings"
-              aria-expanded={settingsOpen}
-              onClick={() => setSettingsOpen((open) => !open)}
-            >
-              ∴
-            </button>
             <button
               className="mobile-nav-toggle"
               type="button"
@@ -76,7 +65,6 @@ export function DexShell({ children }: { children: ReactNode }) {
               Menu
             </button>
           </div>
-          {settingsOpen ? <SettingsPanel onClose={() => setSettingsOpen(false)} /> : null}
         </div>
 
         <NetworkGuardBanner />

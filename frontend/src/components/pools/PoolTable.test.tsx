@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RegistryPool } from "../../config/registry";
 import { PoolTable } from "./PoolTable";
@@ -61,8 +61,14 @@ function renderPoolTable() {
   return render(
     <MemoryRouter>
       <PoolTable pools={pools} />
+      <LocationProbe />
     </MemoryRouter>,
   );
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <span data-testid="location">{location.pathname}</span>;
 }
 
 describe("PoolTable", () => {
@@ -72,29 +78,44 @@ describe("PoolTable", () => {
     mocks.metricRefetch.mockReset();
   });
 
-  it("renders compact pool identity with token logos and pool type", () => {
+  it("renders compact pool identity with token logos and no visible pool tags", () => {
     renderPoolTable();
 
     expect(screen.getByAltText("JUNO logo").getAttribute("src")).toBe("https://example.com/JUNO.svg");
     expect(screen.getByText("JUNO / USDC")).toBeTruthy();
-    expect(screen.getAllByText("XYK").length).toBeGreaterThanOrEqual(1);
+    const poolRows = screen.getAllByRole("row").slice(1);
+    for (const row of poolRows) {
+      expect(within(row).queryByText("XYK")).toBeNull();
+      expect(within(row).queryByText(/XYK · 30 bps/i)).toBeNull();
+      expect(within(row).queryByText(/verified pool/i)).toBeNull();
+    }
     expect(screen.queryByText("transfer/channel-1/usdc")).toBeNull();
   });
 
-  it("shows unavailable metric copy when metrics are not loaded", () => {
+  it("shows unavailable metric placeholders without pool list banner copy", () => {
     renderPoolTable();
 
-    expect(screen.getByText(/Browse pools by liquidity, volume, APR, type, and wallet position/i)).toBeTruthy();
+    expect(screen.queryByText(/Browse pools by liquidity, volume, APR, type, and wallet position/i)).toBeNull();
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
   });
 
-  it("shows retry affordance when pool metrics fail", () => {
+  it("does not show a retry banner when pool metrics fail", () => {
     mocks.access = { source: "fallback", isFallback: true, isMock: false, isStale: false, error: { code: "timeout", message: "indexer timed out" } };
 
     renderPoolTable();
-    expect(screen.getByText("Pool metrics unavailable")).toBeTruthy();
-    fireEvent.click(screen.getAllByRole("button", { name: /retry/i })[0]);
-    expect(mocks.metricRefetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Pool metrics unavailable")).toBeNull();
+    expect(screen.queryByRole("button", { name: /retry/i })).toBeNull();
+    expect(mocks.metricRefetch).not.toHaveBeenCalled();
+  });
+
+  it("navigates to pool details when a pool row is clicked", () => {
+    renderPoolTable();
+
+    fireEvent.click(screen.getByRole("row", { name: /open JUNO \/ USDC pool details/i }));
+    expect(screen.getByTestId("location").textContent).toBe("/pools/juno1alpha");
+    expect(screen.queryByRole("link", { name: "Swap" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Add" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Details" })).toBeNull();
   });
 
   it("filters rows by search and verification controls", () => {

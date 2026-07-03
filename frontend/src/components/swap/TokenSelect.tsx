@@ -22,6 +22,8 @@ type TokenSelectorProps = {
   label: string;
   balances?: readonly WalletBalance[];
   disabledIds?: string[];
+  showIdentifier?: boolean;
+  hideLabel?: boolean;
 };
 
 function readStoredIds(key: string): string[] {
@@ -49,7 +51,7 @@ function assetBalance(asset: TokenSelectorAsset, balances?: readonly WalletBalan
   return balances?.find((balance) => balance.denom === asset.id)?.amount;
 }
 
-export function TokenSelect({ assets, value, onChange, label, balances, disabledIds = [] }: TokenSelectorProps) {
+export function TokenSelect({ assets, value, onChange, label, balances, disabledIds = [], showIdentifier = true, hideLabel = false }: TokenSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [favorites, setFavorites] = useState<string[]>(() => readStoredIds(FAVORITES_STORAGE_KEY));
@@ -95,13 +97,13 @@ export function TokenSelect({ assets, value, onChange, label, balances, disabled
   };
 
   return (
-    <div className="token-selector field">
-      <span>{label}</span>
+    <div className={`token-selector field${hideLabel ? " token-selector-compact" : ""}`}>
+      {hideLabel ? null : <span>{label}</span>}
       <button className="token-selector-trigger" type="button" onClick={() => setIsOpen(true)} aria-haspopup="dialog" aria-expanded={isOpen} aria-label={`${label}: ${selected?.symbol ?? "Select token"}`} disabled={!selected}>
         {selected ? <TokenLogo asset={selected} /> : null}
         <span className="token-selector-trigger-copy">
           <strong>{selected?.symbol ?? "Select"}</strong>
-          <small>{selected?.id ?? "Choose token"}</small>
+          {showIdentifier ? <small>{selected?.id ?? "Choose token"}</small> : null}
         </span>
         <span aria-hidden="true">▾</span>
       </button>
