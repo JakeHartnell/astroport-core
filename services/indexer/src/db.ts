@@ -307,7 +307,33 @@ async function insertSwap(client: PgClient, chainId: string, event: SwapEvent, o
     ],
   );
   if (inserted.rowCount === 0) return;
-  if (options.writeCandlesInline !== false) await upsertCandlesForSwap(client, chainId, event, poolId);
+  if (options.writeCandlesInline === false) {
+    await enqueueCandleJobForSwap(client, chainId, event.pairAddress, event.blockTime);
+  } else {
+    await upsertCandlesForSwap(client, chainId, event, poolId);
+  }
+}
+
+function addMilliseconds(iso: string, ms: number): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) throw new Error(`invalid candle job timestamp: ${iso}`);
+  return new Date(date.getTime() + ms).toISOString();
+}
+
+export async function enqueueCandleJobForSwap(client: PgClient, chainId: string, pairAddress: string, blockTime: string): Promise<void> {
+  const fromTime = bucketStartFor(blockTime, "1d");
+  const toTime = addMilliseconds(fromTime, 24 * 60 * 60 * 1000);
+  await client.query(
+    `INSERT INTO candle_jobs(chain_id, pair_address, from_time, to_time, status, run_after)
+     VALUES ($1, $2, $3, $4, 'pending', now())
+     ON CONFLICT (chain_id, pair_address, from_time, to_time) DO UPDATE
+     SET status = CASE WHEN candle_jobs.status = 'running' THEN candle_jobs.status ELSE 'pending' END,
+         rerun_requested = CASE WHEN candle_jobs.status = 'running' THEN true ELSE false END,
+         run_after = now(),
+         last_error = NULL,
+         updated_at = now()`,
+    [chainId, pairAddress, fromTime, toTime],
+  );
 }
 
 const MAX_ASSET_DECIMALS = 36;
@@ -387,6 +413,13 @@ export async function backfillTokenCandles(
   client: PgClient,
   params: { chainId: string; pairAddress?: string; from?: string; to?: string; batchSize?: number } = { chainId: "juno-1" },
 ): Promise<number> {
+  return rebuildTokenCandlesForRange(client, { ...params, source: "backfill", toExclusive: false });
+}
+
+export async function rebuildTokenCandlesForRange(
+  client: PgClient,
+  params: { chainId: string; pairAddress?: string; from?: string; to?: string; batchSize?: number; source?: string; toExclusive?: boolean } = { chainId: "juno-1" },
+): Promise<number> {
   type SwapBackfillRow = { pair_address: string; block_time: string; offer_asset?: string; offer_amount?: string; ask_asset?: string; return_amount?: string; height: string; tx_hash: string; msg_index: string; event_index: string };
   const result = await client.query<SwapBackfillRow>(
     `SELECT pair_address, block_time, offer_asset, offer_amount, ask_asset, return_amount,
@@ -395,12 +428,12 @@ export async function backfillTokenCandles(
      WHERE chain_id = $1
        AND ($2::text IS NULL OR pair_address = $2)
        AND ($3::timestamptz IS NULL OR block_time >= $3)
-       AND ($4::timestamptz IS NULL OR block_time <= $4)
-     ORDER BY height ASC, id ASC
+       AND ($4::timestamptz IS NULL OR (($6::boolean AND block_time < $4) OR (NOT $6::boolean AND block_time <= $4)))
+     ORDER BY height ASC, msg_index ASC, event_index ASC, id ASC
      LIMIT $5`,
-    [params.chainId, params.pairAddress ?? null, params.from ?? null, params.to ?? null, params.batchSize ?? 10_000],
+    [params.chainId, params.pairAddress ?? null, params.from ?? null, params.to ?? null, params.batchSize ?? 10_000, params.toExclusive ?? false],
   );
-  const swaps = result.rows.map((row) => ({
+  const swaps: Array<{ pairAddress: string; blockTime: string; offerAsset?: string; offerAmount?: string; askAsset?: string; returnAmount?: string }> = result.rows.map((row: SwapBackfillRow) => ({
     pairAddress: row.pair_address,
     blockTime: row.block_time,
     offerAsset: row.offer_asset,
@@ -421,7 +454,7 @@ export async function backfillTokenCandles(
     for (const candle of candles) {
       await client.query(
         `INSERT INTO token_candles(chain_id, pool_id, pair_address, asset, quote_asset, interval, bucket_start, open, high, low, close, volume, volume_quote, volume_usd, trade_count, source)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,$14,'backfill')
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,$14,$15)
          ON CONFLICT (chain_id, pair_address, asset, quote_asset, interval, bucket_start) DO UPDATE
          SET open = EXCLUDED.open,
              high = EXCLUDED.high,
@@ -432,13 +465,117 @@ export async function backfillTokenCandles(
              volume_usd = NULL,
              trade_count = EXCLUDED.trade_count,
              pool_id = COALESCE(token_candles.pool_id, EXCLUDED.pool_id),
-             source = 'backfill',
+             source = EXCLUDED.source,
              updated_at = now()`,
-        [params.chainId, poolIds.get(candle.pairAddress) ?? null, candle.pairAddress, candle.baseAsset, candle.quoteAsset, interval, candle.bucketStart, candle.open, candle.high, candle.low, candle.close, candle.volume, candle.volumeQuote, candle.tradeCount],
+        [params.chainId, poolIds.get(candle.pairAddress) ?? null, candle.pairAddress, candle.baseAsset, candle.quoteAsset, interval, candle.bucketStart, candle.open, candle.high, candle.low, candle.close, candle.volume, candle.volumeQuote, candle.tradeCount, params.source ?? "backfill"],
       );
     }
   }
   return result.rowCount ?? 0;
+}
+
+export type CandleJob = {
+  id: string;
+  chainId: string;
+  pairAddress: string;
+  fromTime: string;
+  toTime: string;
+  attempts: number;
+  workerId: string;
+};
+
+type CandleJobRow = { id: string; chain_id: string; pair_address: string; from_time: string; to_time: string; attempts: number | string; worker_id: string };
+
+function mapCandleJob(row: CandleJobRow): CandleJob {
+  return {
+    id: String(row.id),
+    chainId: row.chain_id,
+    pairAddress: row.pair_address,
+    fromTime: row.from_time,
+    toTime: row.to_time,
+    attempts: Number(row.attempts),
+    workerId: row.worker_id,
+  };
+}
+
+export async function claimNextCandleJob(client: PgClient, params: { chainId: string; workerId: string; staleAfterMs?: number }): Promise<CandleJob | undefined> {
+  const result = await client.query<CandleJobRow>(
+    `WITH next_job AS (
+       SELECT id
+       FROM candle_jobs
+       WHERE chain_id = $1
+         AND run_after <= now()
+         AND (
+           status IN ('pending', 'failed')
+           OR (status = 'running' AND claimed_at < now() - (($3::text)::interval))
+         )
+       ORDER BY run_after ASC, created_at ASC, id ASC
+       LIMIT 1
+       FOR UPDATE SKIP LOCKED
+     )
+     UPDATE candle_jobs
+     SET status = 'running',
+         attempts = attempts + 1,
+         worker_id = $2,
+         claimed_at = now(),
+         last_error = NULL,
+         updated_at = now()
+     FROM next_job
+     WHERE candle_jobs.id = next_job.id
+     RETURNING candle_jobs.id, chain_id, pair_address, from_time, to_time, attempts, worker_id`,
+    [params.chainId, params.workerId, `${params.staleAfterMs ?? 10 * 60 * 1000} milliseconds`],
+  );
+  const row = result.rows[0];
+  return row ? mapCandleJob(row) : undefined;
+}
+
+export async function completeCandleJob(client: PgClient, job: CandleJob, processedSwaps: number): Promise<void> {
+  await client.query(
+    `UPDATE candle_jobs
+     SET status = CASE WHEN rerun_requested THEN 'pending' ELSE 'completed' END,
+         rerun_requested = false,
+         processed_swaps = $4,
+         updated_at = now()
+     WHERE id = $1
+       AND status = 'running'
+       AND worker_id = $2
+       AND attempts = $3`,
+    [job.id, job.workerId, job.attempts, processedSwaps],
+  );
+}
+
+export async function failCandleJob(client: PgClient, job: CandleJob, error: unknown): Promise<void> {
+  const message = error instanceof Error ? error.message : String(error);
+  await client.query(
+    `UPDATE candle_jobs
+     SET status = 'failed', last_error = $4, run_after = now() + (($5::text)::interval), updated_at = now()
+     WHERE id = $1
+       AND status = 'running'
+       AND worker_id = $2
+       AND attempts = $3`,
+    [job.id, job.workerId, job.attempts, message.slice(0, 2_000), "30 seconds"],
+  );
+}
+
+export async function processNextCandleJob(client: PgClient, params: { chainId: string; workerId: string; batchSize?: number; staleAfterMs?: number }): Promise<CandleJob | undefined> {
+  const job = await claimNextCandleJob(client, params);
+  if (!job) return undefined;
+  try {
+    const processed = await rebuildTokenCandlesForRange(client, {
+      chainId: job.chainId,
+      pairAddress: job.pairAddress,
+      from: job.fromTime,
+      to: job.toTime,
+      batchSize: params.batchSize ?? 2_147_483_647,
+      source: "worker",
+      toExclusive: true,
+    });
+    await completeCandleJob(client, job, processed);
+    return job;
+  } catch (error) {
+    await failCandleJob(client, job, error);
+    throw error;
+  }
 }
 
 async function insertLiquidityEvent(client: PgClient, chainId: string, event: LiquidityEvent): Promise<void> {

@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { backfillTokenCandles, claimSnapshotJobs, enqueueSnapshotJobs, listMigrationFiles, markSnapshotJobFailed, markSnapshotJobSucceeded, recordProcessedBlock, runMigrations, upsertPoolStateSnapshot, writeNormalizedEvent, writeNormalizedEvents } from "../src/db.js";
+import { backfillTokenCandles, claimSnapshotJobs, enqueueSnapshotJobs, listMigrationFiles, markSnapshotJobFailed, markSnapshotJobSucceeded, processNextCandleJob, recordProcessedBlock, runMigrations, upsertPoolStateSnapshot, writeNormalizedEvent, writeNormalizedEvents } from "../src/db.js";
 
 type Query = { text: string; values?: unknown[] };
 
@@ -67,6 +67,9 @@ class FakeCandleClient {
       return { rows: [], rowCount: 1 };
     }
     if (text.includes("INSERT INTO swaps")) return { rows: [{ id: "swap-1", pool_id: values?.[1] ?? null }] as T[], rowCount: 1 };
+    if (text.includes("INSERT INTO candle_jobs")) return { rows: [], rowCount: 1 };
+    if (text.includes("WITH next_job")) return { rows: [{ id: "job-1", chain_id: "juno-1", pair_address: "juno1pair", from_time: "2026-07-01T00:00:00.000Z", to_time: "2026-07-02T00:00:00.000Z", attempts: 1, worker_id: values?.[1] }] as T[], rowCount: 1 };
+    if (text.includes("UPDATE candle_jobs")) return { rows: [], rowCount: 1 };
     if (text.includes("FROM swaps")) return { rows: [this.swapRow] as T[], rowCount: 1 };
     if (text.includes("FROM asset_metadata")) {
       const requested = new Set((values?.[1] as string[]) ?? []);
@@ -91,6 +94,7 @@ describe("migration runner", () => {
       "003_api_pricing_readiness.sql",
       "004_pool_state_source_precedence.sql",
       "005_snapshot_jobs.sql",
+      "006_candle_jobs.sql",
     ]);
   });
 
@@ -216,6 +220,9 @@ describe("swap candle writes", () => {
     }, { writeCandlesInline: false });
 
     expect(client.queries.some((query) => query.text.includes("INSERT INTO swaps"))).toBe(true);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO candle_jobs"))).toBe(true);
+    const jobInsert = client.queries.find((query) => query.text.includes("INSERT INTO candle_jobs"));
+    expect(jobInsert?.values).toEqual(["juno-1", "juno1pair", "2026-07-01T00:00:00.000Z", "2026-07-02T00:00:00.000Z"]);
     expect(client.queries.some((query) => query.text.includes("FROM asset_metadata"))).toBe(false);
     expect(client.queries.some((query) => query.text.includes("INSERT INTO token_candles"))).toBe(false);
   });
@@ -247,7 +254,7 @@ describe("swap candle writes", () => {
     const okClient = new FakeCandleClient([{ asset: "factory/backfill18", decimals: 18 }, { asset: "ujuno-backfill", decimals: 6 }]);
     await expect(backfillTokenCandles(okClient as never, { chainId: "juno-1" })).resolves.toBe(1);
     const backfillInsert = okClient.queries.find((query) => query.text.includes("INSERT INTO token_candles"));
-    expect(backfillInsert?.values?.slice(3, 14)).toEqual(["factory/backfill18", "ujuno-backfill", "5m", "2026-07-01T03:00:00.000Z", "1.5", "1.5", "1.5", "1.5", "2", "3", 1]);
+    expect(backfillInsert?.values?.slice(3, 15)).toEqual(["factory/backfill18", "ujuno-backfill", "5m", "2026-07-01T03:00:00.000Z", "1.5", "1.5", "1.5", "1.5", "2", "3", 1, "backfill"]);
 
     const badClient = new FakeCandleClient(
       [{ asset: "factory/backfill-bad18", decimals: 309 }, { asset: "ujuno-backfill-bad", decimals: 6 }],
@@ -255,6 +262,28 @@ describe("swap candle writes", () => {
     );
     await expect(backfillTokenCandles(badClient as never, { chainId: "juno-1" })).resolves.toBe(1);
     expect(badClient.queries.some((query) => query.text.includes("INSERT INTO token_candles"))).toBe(false);
+  });
+
+  it("worker claims a candle job, rebuilds candles through shared helper, and marks completion", async () => {
+    const client = new FakeCandleClient([{ asset: "factory/backfill18", decimals: 18 }, { asset: "ujuno-backfill", decimals: 6 }]);
+
+    await expect(processNextCandleJob(client as never, { chainId: "juno-1", workerId: "worker-1" })).resolves.toMatchObject({
+      id: "job-1",
+      pairAddress: "juno1pair",
+    });
+
+    const claim = client.queries.find((query) => query.text.includes("FOR UPDATE SKIP LOCKED"));
+    expect(claim?.values?.slice(0, 2)).toEqual(["juno-1", "worker-1"]);
+    const swapRead = client.queries.find((query) => query.text.includes("FROM swaps"));
+    expect(swapRead?.text).toContain("ORDER BY height ASC, msg_index ASC, event_index ASC, id ASC");
+    expect(swapRead?.values).toEqual(["juno-1", "juno1pair", "2026-07-01T00:00:00.000Z", "2026-07-02T00:00:00.000Z", 2147483647, true]);
+    const candleInsert = client.queries.find((query) => query.text.includes("INSERT INTO token_candles"));
+    expect(candleInsert?.values?.slice(3, 15)).toEqual(["factory/backfill18", "ujuno-backfill", "5m", "2026-07-01T03:00:00.000Z", "1.5", "1.5", "1.5", "1.5", "2", "3", 1, "worker"]);
+    const complete = client.queries.find((query) => query.text.includes("rerun_requested"));
+    expect(complete?.text).toContain("AND status = 'running'");
+    expect(complete?.text).toContain("AND worker_id = $2");
+    expect(complete?.text).toContain("AND attempts = $3");
+    expect(complete?.values).toEqual(["job-1", "worker-1", 1, 1]);
   });
   it("writes pool discovery before same-batch pair events regardless of emitted order", async () => {
     const client = new FakeCandleClient(undefined, undefined, []);
