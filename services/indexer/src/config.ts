@@ -37,6 +37,7 @@ export type IndexerConfig = {
   ingestCandlesInline: boolean;
   ingestReserveSnapshotsInline: boolean;
   ingestAggregatesInline: boolean;
+  ingestBulkStagingEnabled: boolean;
   priceProviderBaseUrl?: string;
   priceProviderApiKey?: string;
   priceProviderName: string;
@@ -119,6 +120,7 @@ export function loadConfig(): IndexerConfig {
     ingestCandlesInline: boolEnv("INGEST_CANDLES_INLINE", true),
     ingestReserveSnapshotsInline: boolEnv("INGEST_RESERVE_SNAPSHOTS_INLINE", true),
     ingestAggregatesInline: boolEnv("INGEST_AGGREGATES_INLINE", false),
+    ingestBulkStagingEnabled: boolEnv("INGEST_BULK_STAGING_ENABLED", false),
     priceProviderBaseUrl: process.env.PRICE_PROVIDER_BASE_URL || undefined,
     priceProviderApiKey: process.env.PRICE_PROVIDER_API_KEY || undefined,
     priceProviderName: env("PRICE_PROVIDER_NAME", "provider"),

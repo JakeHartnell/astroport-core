@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import type { IndexerConfig } from "./config.js";
 import { fetchBlockRange } from "./block-fetcher.js";
-import { advanceCursor, createPool, enqueueSnapshotJobs, getCursor, recordProcessedBlock, upsertPoolStateSnapshot, writeNormalizedEvents, type PgClient, type PgPool } from "./db.js";
+import { advanceCursor, createPool, enqueueSnapshotJobs, getCursor, recordProcessedBlock, stageAndMergeBatch, upsertPoolStateSnapshot, writeNormalizedEvents, type PgClient, type PgPool } from "./db.js";
 import { normalizeBlockEvents, type NormalizedEvent } from "./events.js";
 import { JunoRestClient, JunoRpcClient, type BlockBundle, type ChainHead } from "./rpc.js";
 import { nextBlockRange } from "./ranges.js";
@@ -31,7 +32,9 @@ export class Indexer {
 
     const blocks = await this.fetchRange(planned.from, planned.to);
     const decoded = blocks.map((block) => this.normalizeBlock(block));
-    const processed = await this.writeBlocksInOrder(decoded);
+    const processed = this.shouldUseBulkStaging()
+      ? await this.writeBulkStagingBatch(decoded)
+      : await this.writeBlocksInOrder(decoded);
 
     return { processed, head: planned.head.height, target: planned.target, cursorHeight: planned.to };
   }
@@ -80,6 +83,49 @@ export class Indexer {
       ),
     );
     return { block, events };
+  }
+
+  private shouldUseBulkStaging(): boolean {
+    return !this.config.dryRun
+      && this.config.indexerMode === "catchup"
+      && this.config.ingestBulkStagingEnabled
+      && !this.config.ingestCandlesInline;
+  }
+
+  private async writeBulkStagingBatch(blocks: DecodedBlock[]): Promise<number> {
+    if (blocks.length === 0) return 0;
+    await withClient(this.pool!, async (client) => {
+      await client.query("BEGIN");
+      try {
+        await stageAndMergeBatch(client, {
+          batchId: randomUUID(),
+          chainId: this.config.chainId,
+          cursorId: this.config.cursorId,
+          blocks: blocks.map(({ block, events }) => ({
+            chainId: this.config.chainId,
+            height: block.height,
+            blockHash: block.hash,
+            parentHash: block.parentHash,
+            blockTime: block.time,
+            txCount: block.txCount,
+            events,
+          })),
+          writeCandlesInline: this.config.ingestCandlesInline,
+          enqueueSnapshots: !this.config.ingestReserveSnapshotsInline,
+        });
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    });
+
+    if (this.config.ingestReserveSnapshotsInline) {
+      for (const { block, events } of blocks) {
+        await this.writeReserveSnapshots(events, block.height, block.time);
+      }
+    }
+    return blocks.length;
   }
 
   private async writeBlocksInOrder(blocks: DecodedBlock[]): Promise<number> {

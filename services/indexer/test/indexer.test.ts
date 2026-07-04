@@ -7,6 +7,7 @@ type Query = { text: string; values?: unknown[] };
 class FakeIndexerClient {
   queries: Query[] = [];
   failProcessedBlockHeight?: number;
+  failStagedMerge = false;
   onBegin?: () => void;
 
   async query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[]; rowCount: number }> {
@@ -14,6 +15,10 @@ class FakeIndexerClient {
     if (text === "BEGIN") this.onBegin?.();
     if (text.includes("RETURNING last_height")) return { rows: [{ last_height: "10" }] as T[], rowCount: 1 };
     if (text.includes("FROM processed_blocks")) return { rows: [] as T[], rowCount: 0 };
+    if (text.includes("INSERT INTO processed_blocks") && text.includes("FROM stage_processed_blocks")) {
+      if (this.failStagedMerge) throw new Error("staged merge failed");
+      return { rows: [] as T[], rowCount: 1 };
+    }
     if (text.includes("INSERT INTO processed_blocks")) {
       if (values?.[1] === this.failProcessedBlockHeight) throw new Error(`boom at ${this.failProcessedBlockHeight}`);
       return { rows: [] as T[], rowCount: 1 };
@@ -68,6 +73,7 @@ const baseConfig: IndexerConfig = {
   ingestCandlesInline: true,
   ingestReserveSnapshotsInline: true,
   ingestAggregatesInline: false,
+  ingestBulkStagingEnabled: false,
   priceProviderName: "provider",
   priceCacheTtlMs: 300_000,
   priceStaleAfterMs: 1_800_000,
@@ -160,6 +166,39 @@ describe("Indexer fetch/decode/ordered writer pipeline", () => {
 
     const cursorUpdates = pool.client.queries.filter((query) => query.text.includes("UPDATE indexer_cursors"));
     expect(cursorUpdates.map((query) => query.values?.[1])).toEqual([11]);
+  });
+
+  it("uses the bulk staging writer only for catchup mode when enabled", async () => {
+    const blocks = new Map([[11, rpcBlock(11, [{ type: "wasm", attributes: [
+      { key: "_contract_address", value: "juno1pair" },
+      { key: "action", value: "swap" },
+      { key: "sender", value: "juno1trader" },
+      { key: "offer_asset", value: "ujuno" },
+      { key: "offer_amount", value: "1000000" },
+      { key: "ask_asset", value: "uusdc" },
+      { key: "return_amount", value: "2000000" },
+    ] }])]]);
+    mockRpcRange(13, blocks);
+    const pool = new FakeIndexerPool();
+
+    await expect(new Indexer({ ...baseConfig, indexerMode: "catchup", ingestBulkStagingEnabled: true, ingestCandlesInline: false, batchSize: 1, ingestReserveSnapshotsInline: false }, pool as never).runOnce()).resolves.toMatchObject({ processed: 1, cursorHeight: 11 });
+
+    expect(pool.client.queries.some((query) => query.text.includes("INSERT INTO stage_processed_blocks"))).toBe(true);
+    expect(pool.client.queries.some((query) => query.text.includes("INSERT INTO swaps") && query.text.includes("FROM stage_swaps"))).toBe(true);
+    const cursorUpdates = pool.client.queries.filter((query) => query.text.includes("UPDATE indexer_cursors"));
+    expect(cursorUpdates.map((query) => query.values?.[1])).toEqual([11]);
+  });
+
+  it("leaves the cursor unchanged when the bulk staging merge fails", async () => {
+    const blocks = new Map([[11, rpcBlock(11)]]);
+    mockRpcRange(13, blocks);
+    const pool = new FakeIndexerPool();
+    pool.client.failStagedMerge = true;
+
+    await expect(new Indexer({ ...baseConfig, indexerMode: "catchup", ingestBulkStagingEnabled: true, ingestCandlesInline: false, batchSize: 1 }, pool as never).runOnce()).rejects.toThrow(/staged merge failed/);
+
+    expect(pool.client.queries.some((query) => query.text.includes("UPDATE indexer_cursors"))).toBe(false);
+    expect(pool.client.queries.some((query) => query.text === "ROLLBACK")).toBe(true);
   });
 });
 
