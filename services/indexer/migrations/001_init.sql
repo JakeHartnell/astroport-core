@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS swaps (
 );
 CREATE INDEX IF NOT EXISTS swaps_pool_height_idx ON swaps (pair_address, height DESC);
 CREATE INDEX IF NOT EXISTS swaps_block_time_idx ON swaps (block_time DESC);
+CREATE INDEX IF NOT EXISTS swaps_pair_time_order_idx ON swaps (chain_id, pair_address, block_time, height, msg_index, event_index, id);
 CREATE UNIQUE INDEX IF NOT EXISTS swaps_idempotency_idx
   ON swaps (chain_id, tx_hash, msg_index, event_index, pair_address, COALESCE(trader, ''));
 
