@@ -56,6 +56,7 @@ Copy `.env.example` to `.env` or export variables:
 | `INGEST_CANDLES_INLINE` | `true` | Whether the process should run candle ingestion inline when that runtime path is enabled. |
 | `INGEST_RESERVE_SNAPSHOTS_INLINE` | `true` | Whether the process should run reserve snapshot ingestion inline when that runtime path is enabled. |
 | `INGEST_AGGREGATES_INLINE` | `false` | Whether the process should run aggregate ingestion inline when that runtime path is enabled. |
+| `INGEST_BULK_STAGING_ENABLED` | `false` | Enables the catch-up-only staging-table merge writer when `INDEXER_MODE=catchup` and `INGEST_CANDLES_INLINE=false`. Leave unset/false for the default per-block ordered writer. |
 | `API_PORT` | `8787` | Port for the HTTP API served by the same production process as the poller. |
 | `PRICE_PROVIDER_BASE_URL` | unset | Reserved for a future provider worker. Current API only serves persisted `token_prices` rows. |
 | `PRICE_PROVIDER_API_KEY` | unset | Reserved for future provider credentials; never commit real keys. |

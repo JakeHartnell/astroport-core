@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { backfillTokenCandles, claimSnapshotJobs, enqueueSnapshotJobs, listMigrationFiles, markSnapshotJobFailed, markSnapshotJobSucceeded, processNextCandleJob, recordProcessedBlock, runMigrations, upsertPoolStateSnapshot, writeNormalizedEvent, writeNormalizedEvents } from "../src/db.js";
+import { backfillTokenCandles, claimSnapshotJobs, enqueueSnapshotJobs, listMigrationFiles, markSnapshotJobFailed, markSnapshotJobSucceeded, processNextCandleJob, recordProcessedBlock, runMigrations, stageAndMergeBatch, upsertPoolStateSnapshot, writeNormalizedEvent, writeNormalizedEvents } from "../src/db.js";
 
 type Query = { text: string; values?: unknown[] };
 
@@ -86,6 +86,22 @@ class FakeCandleClient {
   }
 }
 
+class FakeStageClient {
+  queries: Query[] = [];
+  processedBlockRowCount = 1;
+  previousBlockHash?: string;
+
+  async query<T = Record<string, unknown>>(text: string, values?: unknown[]): Promise<{ rows: T[]; rowCount: number }> {
+    this.queries.push({ text, values });
+    if (text.includes("FROM processed_blocks") && text.includes("height = $2")) {
+      const rows = this.previousBlockHash ? [{ block_hash: this.previousBlockHash }] as T[] : [];
+      return { rows, rowCount: rows.length };
+    }
+    if (text.includes("INSERT INTO processed_blocks")) return { rows: [], rowCount: this.processedBlockRowCount };
+    return { rows: [], rowCount: 1 };
+  }
+}
+
 describe("migration runner", () => {
   it("lists repository migrations from the default runtime path", async () => {
     await expect(listMigrationFiles()).resolves.toEqual([
@@ -95,6 +111,7 @@ describe("migration runner", () => {
       "004_pool_state_source_precedence.sql",
       "005_snapshot_jobs.sql",
       "006_candle_jobs.sql",
+      "007_bulk_staging.sql",
     ]);
   });
 
@@ -169,6 +186,91 @@ describe("processed block recording", () => {
     const insert = client.queries.find((query) => query.text.includes("INSERT INTO processed_blocks"));
     expect(insert?.text).toContain("WHERE processed_blocks.chain_id = EXCLUDED.chain_id");
     expect(insert?.text).toContain("processed_blocks.block_hash = EXCLUDED.block_hash");
+  });
+});
+
+describe("bulk staging merge writer", () => {
+  it("stages decoded rows, merges canonical tables in dependency order, and advances the cursor after merge SQL", async () => {
+    const client = new FakeStageClient();
+
+    await stageAndMergeBatch(client as never, {
+      batchId: "00000000-0000-4000-8000-000000000001",
+      chainId: "juno-1",
+      cursorId: "astroport-juno-v1",
+      writeCandlesInline: false,
+      enqueueSnapshots: true,
+      blocks: [{
+        chainId: "juno-1",
+        height: 39381355,
+        blockHash: "block-39381355",
+        parentHash: "block-39381354",
+        blockTime: "2026-07-01T03:01:00Z",
+        txCount: 1,
+        events: [
+          { kind: "pool_created", chainId: "juno-1", height: 39381355, blockTime: "2026-07-01T03:01:00Z", txHash: "tx", msgIndex: 0, eventIndex: 0, factoryAddress: "juno1factory", pairAddress: "juno1pair", assetInfos: ["ujuno", "uusdc"], raw: {} },
+          { kind: "swap", chainId: "juno-1", height: 39381355, blockTime: "2026-07-01T03:01:00Z", txHash: "tx", msgIndex: 0, eventIndex: 1, pairAddress: "juno1pair", trader: "juno1trader", offerAsset: "ujuno", offerAmount: "1", askAsset: "uusdc", returnAmount: "2", raw: {} },
+          { kind: "provide", chainId: "juno-1", height: 39381355, blockTime: "2026-07-01T03:01:00Z", txHash: "tx", msgIndex: 0, eventIndex: 2, pairAddress: "juno1pair", provider: "juno1provider", assets: [{ asset: "ujuno", amount: "1" }], shareAmount: "1", raw: {} },
+          { kind: "incentive", chainId: "juno-1", height: 39381355, blockTime: "2026-07-01T03:01:00Z", txHash: "tx", msgIndex: 0, eventIndex: 3, incentivesAddress: "juno1incentives", action: "bond", userAddress: "juno1user", amount: "1", raw: {} },
+        ],
+      }],
+    });
+
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO stage_processed_blocks"))).toBe(true);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO stage_pools"))).toBe(true);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO stage_swaps"))).toBe(true);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO stage_liquidity_events"))).toBe(true);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO stage_incentive_events"))).toBe(true);
+
+    const processedMergeIndex = client.queries.findIndex((query) => query.text.includes("INSERT INTO processed_blocks"));
+    const poolMergeIndex = client.queries.findIndex((query) => query.text.includes("INSERT INTO pools") && query.text.includes("FROM stage_pools"));
+    const swapMergeIndex = client.queries.findIndex((query) => query.text.includes("INSERT INTO swaps") && query.text.includes("FROM stage_swaps"));
+    const cursorIndex = client.queries.findIndex((query) => query.text.includes("UPDATE indexer_cursors"));
+    expect(processedMergeIndex).toBeGreaterThanOrEqual(0);
+    expect(poolMergeIndex).toBeGreaterThan(processedMergeIndex);
+    expect(swapMergeIndex).toBeGreaterThan(poolMergeIndex);
+    expect(cursorIndex).toBeGreaterThan(swapMergeIndex);
+    expect(client.queries[cursorIndex]?.values).toEqual(["astroport-juno-v1", 39381355, "block-39381355"]);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO candle_jobs"))).toBe(true);
+    expect(client.queries.some((query) => query.text.includes("INSERT INTO snapshot_jobs"))).toBe(true);
+  });
+
+  it("does not advance the cursor when a staging merge detects a processed block conflict", async () => {
+    const client = new FakeStageClient();
+    client.processedBlockRowCount = 0;
+
+    await expect(stageAndMergeBatch(client as never, {
+      batchId: "00000000-0000-4000-8000-000000000002",
+      chainId: "juno-1",
+      cursorId: "astroport-juno-v1",
+      blocks: [{ chainId: "juno-1", height: 12, blockHash: "new", parentHash: "old", blockTime: "2026-07-01T03:01:00Z", txCount: 0, events: [] }],
+    })).rejects.toThrow(/processed block conflict/);
+
+    expect(client.queries.some((query) => query.text.includes("UPDATE indexer_cursors"))).toBe(false);
+  });
+
+  it("rejects non-contiguous or forked staged block ranges before advancing the cursor", async () => {
+    const client = new FakeStageClient();
+
+    await expect(stageAndMergeBatch(client as never, {
+      batchId: "00000000-0000-4000-8000-000000000003",
+      chainId: "juno-1",
+      cursorId: "astroport-juno-v1",
+      blocks: [
+        { chainId: "juno-1", height: 12, blockHash: "block-12", parentHash: "block-11", blockTime: "2026-07-01T03:01:00Z", txCount: 0, events: [] },
+        { chainId: "juno-1", height: 13, blockHash: "block-13", parentHash: "different-parent", blockTime: "2026-07-01T03:01:06Z", txCount: 0, events: [] },
+      ],
+    })).rejects.toThrow(/parent hash mismatch/);
+    expect(client.queries.some((query) => query.text.includes("UPDATE indexer_cursors"))).toBe(false);
+
+    const previousClient = new FakeStageClient();
+    previousClient.previousBlockHash = "canonical-11";
+    await expect(stageAndMergeBatch(previousClient as never, {
+      batchId: "00000000-0000-4000-8000-000000000004",
+      chainId: "juno-1",
+      cursorId: "astroport-juno-v1",
+      blocks: [{ chainId: "juno-1", height: 12, blockHash: "block-12", parentHash: "fork-11", blockTime: "2026-07-01T03:01:00Z", txCount: 0, events: [] }],
+    })).rejects.toThrow(/parent hash mismatch/);
+    expect(previousClient.queries.some((query) => query.text.includes("UPDATE indexer_cursors"))).toBe(false);
   });
 });
 

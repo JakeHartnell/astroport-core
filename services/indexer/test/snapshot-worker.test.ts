@@ -53,6 +53,7 @@ const config: IndexerConfig = {
   ingestCandlesInline: true,
   ingestReserveSnapshotsInline: false,
   ingestAggregatesInline: false,
+  ingestBulkStagingEnabled: false,
   priceProviderName: "provider",
   priceCacheTtlMs: 300_000,
   priceStaleAfterMs: 1_800_000,

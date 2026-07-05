@@ -237,6 +237,287 @@ export type WriteNormalizedEventsOptions = {
   writeCandlesInline?: boolean;
 };
 
+export type StagedBlock = {
+  chainId: string;
+  height: number;
+  blockHash: string;
+  parentHash?: string;
+  blockTime: string;
+  txCount: number;
+  events: NormalizedEvent[];
+};
+
+type MultiInsertColumn<T> = { name: string; value: (row: T) => unknown; cast?: string };
+
+async function multiInsert<T>(client: PgClient, table: string, columns: MultiInsertColumn<T>[], rows: T[], conflict = "DO NOTHING"): Promise<void> {
+  if (rows.length === 0) return;
+  const values: unknown[] = [];
+  const tuples = rows.map((row) => {
+    const placeholders = columns.map((column) => {
+      values.push(column.value(row));
+      return `$${values.length}${column.cast ? `::${column.cast}` : ""}`;
+    });
+    return `(${placeholders.join(",")})`;
+  });
+  await client.query(
+    `INSERT INTO ${table}(${columns.map((column) => column.name).join(",")}) VALUES ${tuples.join(",")} ON CONFLICT ${conflict}`,
+    values,
+  );
+}
+
+export async function stageAndMergeBatch(
+  client: PgClient,
+  params: { batchId: string; chainId: string; cursorId: string; blocks: StagedBlock[]; writeCandlesInline?: boolean; enqueueSnapshots?: boolean; cleanupOlderThanHours?: number },
+): Promise<void> {
+  if (params.blocks.length === 0) return;
+  const batchId = params.batchId;
+  await stageProcessedBlocks(client, batchId, params.blocks);
+  await stageEvents(client, batchId, params.chainId, params.blocks.flatMap((block) => block.events));
+  await mergeStagedBatch(client, params);
+}
+
+async function stageProcessedBlocks(client: PgClient, batchId: string, blocks: StagedBlock[]): Promise<void> {
+  await multiInsert(client, "stage_processed_blocks", [
+    { name: "batch_id", value: () => batchId, cast: "uuid" },
+    { name: "chain_id", value: (block) => block.chainId },
+    { name: "height", value: (block) => block.height },
+    { name: "block_hash", value: (block) => block.blockHash },
+    { name: "parent_hash", value: (block) => block.parentHash ?? null },
+    { name: "block_time", value: (block) => block.blockTime },
+    { name: "tx_count", value: (block) => block.txCount },
+  ], blocks);
+}
+
+async function stageEvents(client: PgClient, batchId: string, chainId: string, events: NormalizedEvent[]): Promise<void> {
+  await multiInsert(client, "stage_pools", [
+    { name: "batch_id", value: () => batchId, cast: "uuid" },
+    { name: "chain_id", value: () => chainId },
+    { name: "height", value: (event) => event.height },
+    { name: "block_time", value: (event) => event.blockTime },
+    { name: "tx_hash", value: (event) => event.txHash },
+    { name: "msg_index", value: (event) => event.msgIndex },
+    { name: "event_index", value: (event) => event.eventIndex },
+    { name: "factory_address", value: (event) => event.factoryAddress },
+    { name: "pair_address", value: (event) => event.pairAddress },
+    { name: "liquidity_token_address", value: (event) => event.liquidityTokenAddress ?? null },
+    { name: "pool_type", value: (event) => event.poolType ?? null },
+    { name: "asset_infos", value: (event) => JSON.stringify(event.assetInfos), cast: "jsonb" },
+    { name: "raw_event", value: (event) => JSON.stringify(event.raw), cast: "jsonb" },
+  ], events.filter((event): event is PoolCreatedEvent => event.kind === "pool_created"));
+
+  await multiInsert(client, "stage_swaps", [
+    { name: "batch_id", value: () => batchId, cast: "uuid" },
+    { name: "chain_id", value: () => chainId },
+    { name: "height", value: (event) => event.height },
+    { name: "block_time", value: (event) => event.blockTime },
+    { name: "tx_hash", value: (event) => event.txHash },
+    { name: "msg_index", value: (event) => event.msgIndex },
+    { name: "event_index", value: (event) => event.eventIndex },
+    { name: "pair_address", value: (event) => event.pairAddress },
+    { name: "trader", value: (event) => event.trader ?? null },
+    { name: "offer_asset", value: (event) => event.offerAsset ?? null },
+    { name: "offer_amount", value: (event) => event.offerAmount ?? null },
+    { name: "ask_asset", value: (event) => event.askAsset ?? null },
+    { name: "return_amount", value: (event) => event.returnAmount ?? null },
+    { name: "spread_amount", value: (event) => event.spreadAmount ?? null },
+    { name: "commission_amount", value: (event) => event.commissionAmount ?? null },
+    { name: "raw_event", value: (event) => JSON.stringify(event.raw), cast: "jsonb" },
+  ], events.filter((event): event is SwapEvent => event.kind === "swap"));
+
+  await multiInsert(client, "stage_liquidity_events", [
+    { name: "batch_id", value: () => batchId, cast: "uuid" },
+    { name: "chain_id", value: () => chainId },
+    { name: "height", value: (event) => event.height },
+    { name: "block_time", value: (event) => event.blockTime },
+    { name: "tx_hash", value: (event) => event.txHash },
+    { name: "msg_index", value: (event) => event.msgIndex },
+    { name: "event_index", value: (event) => event.eventIndex },
+    { name: "pair_address", value: (event) => event.pairAddress },
+    { name: "kind", value: (event) => event.kind },
+    { name: "provider", value: (event) => event.provider ?? null },
+    { name: "assets", value: (event) => JSON.stringify(event.assets), cast: "jsonb" },
+    { name: "share_amount", value: (event) => event.shareAmount ?? null },
+    { name: "raw_event", value: (event) => JSON.stringify(event.raw), cast: "jsonb" },
+  ], events.filter((event): event is LiquidityEvent => event.kind === "provide" || event.kind === "withdraw"));
+
+  await multiInsert(client, "stage_incentive_events", [
+    { name: "batch_id", value: () => batchId, cast: "uuid" },
+    { name: "chain_id", value: () => chainId },
+    { name: "height", value: (event) => event.height },
+    { name: "block_time", value: (event) => event.blockTime },
+    { name: "tx_hash", value: (event) => event.txHash },
+    { name: "msg_index", value: (event) => event.msgIndex },
+    { name: "event_index", value: (event) => event.eventIndex },
+    { name: "incentives_address", value: (event) => event.incentivesAddress },
+    { name: "lp_token_address", value: (event) => event.lpTokenAddress ?? null },
+    { name: "user_address", value: (event) => event.userAddress ?? null },
+    { name: "action", value: (event) => event.action },
+    { name: "amount", value: (event) => event.amount ?? null },
+    { name: "reward_asset", value: (event) => event.rewardAsset ?? null },
+    { name: "reward_amount", value: (event) => event.rewardAmount ?? null },
+    { name: "raw_event", value: (event) => JSON.stringify(event.raw), cast: "jsonb" },
+  ], events.filter((event): event is IncentiveEvent => event.kind === "incentive"));
+}
+
+async function mergeStagedBatch(
+  client: PgClient,
+  params: { batchId: string; chainId: string; cursorId: string; blocks: StagedBlock[]; writeCandlesInline?: boolean; enqueueSnapshots?: boolean; cleanupOlderThanHours?: number },
+): Promise<void> {
+  const batchId = params.batchId;
+  await validateStagedBlockContinuity(client, params.chainId, params.blocks);
+  const blockResult = await client.query(
+    `INSERT INTO processed_blocks(chain_id, height, block_hash, parent_hash, block_time, tx_count)
+     SELECT chain_id, height, block_hash, parent_hash, block_time, tx_count
+     FROM stage_processed_blocks
+     WHERE batch_id = $1::uuid AND chain_id = $2
+     ORDER BY height ASC
+     ON CONFLICT (height) DO UPDATE
+     SET chain_id = EXCLUDED.chain_id,
+         block_time = EXCLUDED.block_time,
+         tx_count = EXCLUDED.tx_count,
+         processed_at = now(),
+         parent_hash = COALESCE(processed_blocks.parent_hash, EXCLUDED.parent_hash)
+     WHERE processed_blocks.chain_id = EXCLUDED.chain_id
+       AND processed_blocks.block_hash = EXCLUDED.block_hash
+       AND (
+         processed_blocks.parent_hash IS NULL
+         OR EXCLUDED.parent_hash IS NULL
+         OR processed_blocks.parent_hash = EXCLUDED.parent_hash
+       )`,
+    [batchId, params.chainId],
+  );
+  if ((blockResult.rowCount ?? 0) !== params.blocks.length) throw new Error(`processed block conflict while merging staging batch ${batchId}`);
+
+  await client.query(
+    `INSERT INTO pools(chain_id, pair_address, factory_address, liquidity_token_address, pool_type, asset_infos, created_height, created_tx_hash, first_seen_at)
+     SELECT chain_id, pair_address, factory_address, liquidity_token_address, pool_type, asset_infos, height, tx_hash, block_time
+     FROM stage_pools
+     WHERE batch_id = $1::uuid AND chain_id = $2
+     ORDER BY height ASC, msg_index ASC, event_index ASC
+     ON CONFLICT (chain_id, pair_address) DO UPDATE
+     SET liquidity_token_address = COALESCE(EXCLUDED.liquidity_token_address, pools.liquidity_token_address),
+         pool_type = COALESCE(EXCLUDED.pool_type, pools.pool_type),
+         asset_infos = CASE WHEN jsonb_array_length(EXCLUDED.asset_infos) > 0 THEN EXCLUDED.asset_infos ELSE pools.asset_infos END,
+         updated_at = now()`,
+    [batchId, params.chainId],
+  );
+
+  await client.query(
+    `INSERT INTO swaps(chain_id, pool_id, pair_address, height, block_time, tx_hash, msg_index, event_index, trader,
+       offer_asset, offer_amount, ask_asset, return_amount, spread_amount, commission_amount, raw_event)
+     SELECT s.chain_id, p.id, s.pair_address, s.height, s.block_time, s.tx_hash, s.msg_index, s.event_index, s.trader,
+       s.offer_asset, s.offer_amount, s.ask_asset, s.return_amount, s.spread_amount, s.commission_amount, s.raw_event
+     FROM stage_swaps s
+     JOIN pools p ON p.chain_id = s.chain_id AND p.pair_address = s.pair_address
+     WHERE s.batch_id = $1::uuid AND s.chain_id = $2
+     ORDER BY s.height ASC, s.msg_index ASC, s.event_index ASC
+     ON CONFLICT DO NOTHING`,
+    [batchId, params.chainId],
+  );
+
+  await client.query(
+    `INSERT INTO liquidity_events(chain_id, pool_id, pair_address, height, block_time, tx_hash, msg_index, event_index, kind, provider, assets, share_amount, raw_event)
+     SELECT s.chain_id, p.id, s.pair_address, s.height, s.block_time, s.tx_hash, s.msg_index, s.event_index, s.kind, s.provider, s.assets, s.share_amount, s.raw_event
+     FROM stage_liquidity_events s
+     JOIN pools p ON p.chain_id = s.chain_id AND p.pair_address = s.pair_address
+     WHERE s.batch_id = $1::uuid AND s.chain_id = $2
+     ORDER BY s.height ASC, s.msg_index ASC, s.event_index ASC
+     ON CONFLICT DO NOTHING`,
+    [batchId, params.chainId],
+  );
+
+  await client.query(
+    `INSERT INTO incentive_events(chain_id, incentives_address, lp_token_address, user_address, action, amount, reward_asset, reward_amount,
+       height, block_time, tx_hash, msg_index, event_index, raw_event)
+     SELECT chain_id, incentives_address, lp_token_address, user_address, action, amount, reward_asset, reward_amount,
+       height, block_time, tx_hash, msg_index, event_index, raw_event
+     FROM stage_incentive_events
+     WHERE batch_id = $1::uuid AND chain_id = $2
+     ORDER BY height ASC, msg_index ASC, event_index ASC
+     ON CONFLICT DO NOTHING`,
+    [batchId, params.chainId],
+  );
+
+  if (params.writeCandlesInline === false) {
+    await client.query(
+      `INSERT INTO candle_jobs(chain_id, pair_address, from_time, to_time, status, run_after)
+       SELECT DISTINCT s.chain_id, s.pair_address,
+              date_trunc('day', s.block_time AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' AS from_time,
+              (date_trunc('day', s.block_time AT TIME ZONE 'UTC') AT TIME ZONE 'UTC') + interval '1 day' AS to_time,
+              'pending', now()
+       FROM stage_swaps s
+       JOIN pools p ON p.chain_id = s.chain_id AND p.pair_address = s.pair_address
+       WHERE s.batch_id = $1::uuid AND s.chain_id = $2
+       ON CONFLICT (chain_id, pair_address, from_time, to_time) DO UPDATE
+       SET status = CASE WHEN candle_jobs.status = 'running' THEN candle_jobs.status ELSE 'pending' END,
+           rerun_requested = CASE WHEN candle_jobs.status = 'running' THEN true ELSE false END,
+           run_after = now(),
+           last_error = NULL,
+           updated_at = now()`,
+      [batchId, params.chainId],
+    );
+  }
+
+  if (params.enqueueSnapshots) {
+    await client.query(
+      `INSERT INTO snapshot_jobs(chain_id, pair_address, height, block_time, reason)
+       SELECT DISTINCT s.chain_id, s.pair_address, s.height, s.block_time, 'touched'
+       FROM (
+         SELECT chain_id, pair_address, height, block_time FROM stage_swaps WHERE batch_id = $1::uuid AND chain_id = $2
+         UNION
+         SELECT chain_id, pair_address, height, block_time FROM stage_liquidity_events WHERE batch_id = $1::uuid AND chain_id = $2
+       ) s
+       JOIN pools p ON p.chain_id = s.chain_id AND p.pair_address = s.pair_address
+       ON CONFLICT (chain_id, pair_address, height, reason) DO NOTHING`,
+      [batchId, params.chainId],
+    );
+  }
+
+  const lastBlock = params.blocks[params.blocks.length - 1];
+  await advanceCursor(client, { cursorId: params.cursorId, height: lastBlock.height, blockHash: lastBlock.blockHash });
+  await client.query(`UPDATE stage_processed_blocks SET merged_at = now() WHERE batch_id = $1::uuid AND chain_id = $2`, [batchId, params.chainId]);
+  await cleanupSuccessfulStagingBatches(client, { chainId: params.chainId, olderThanHours: params.cleanupOlderThanHours ?? 24 });
+}
+
+async function validateStagedBlockContinuity(client: PgClient, chainId: string, blocks: StagedBlock[]): Promise<void> {
+  const ordered = [...blocks].sort((a, b) => a.height - b.height);
+  for (let index = 1; index < ordered.length; index += 1) {
+    const previous = ordered[index - 1];
+    const current = ordered[index];
+    if (current.height !== previous.height + 1) throw new Error(`non-contiguous staging batch at height ${current.height}`);
+    if (current.parentHash && current.parentHash !== previous.blockHash) {
+      throw new Error(`parent hash mismatch for staged block ${current.height}`);
+    }
+  }
+
+  const first = ordered[0];
+  if (!first?.parentHash) return;
+  const result = await client.query<{ block_hash: string }>(
+    `SELECT block_hash FROM processed_blocks WHERE chain_id = $1 AND height = $2`,
+    [chainId, first.height - 1],
+  );
+  const previous = result.rows[0];
+  if (previous && previous.block_hash !== first.parentHash) {
+    throw new Error(`parent hash mismatch for staged block ${first.height}`);
+  }
+}
+
+export async function cleanupSuccessfulStagingBatches(client: PgClient, params: { chainId: string; olderThanHours?: number }): Promise<void> {
+  const olderThan = `${params.olderThanHours ?? 24} hours`;
+  await client.query(
+    `WITH old_batches AS (
+       SELECT DISTINCT batch_id FROM stage_processed_blocks
+       WHERE chain_id = $1 AND merged_at IS NOT NULL AND merged_at < now() - ($2::text)::interval
+     )
+     DELETE FROM stage_pools WHERE batch_id IN (SELECT batch_id FROM old_batches)`,
+    [params.chainId, olderThan],
+  );
+  await client.query(`DELETE FROM stage_swaps WHERE batch_id IN (SELECT batch_id FROM stage_processed_blocks WHERE chain_id = $1 AND merged_at IS NOT NULL AND merged_at < now() - ($2::text)::interval)`, [params.chainId, olderThan]);
+  await client.query(`DELETE FROM stage_liquidity_events WHERE batch_id IN (SELECT batch_id FROM stage_processed_blocks WHERE chain_id = $1 AND merged_at IS NOT NULL AND merged_at < now() - ($2::text)::interval)`, [params.chainId, olderThan]);
+  await client.query(`DELETE FROM stage_incentive_events WHERE batch_id IN (SELECT batch_id FROM stage_processed_blocks WHERE chain_id = $1 AND merged_at IS NOT NULL AND merged_at < now() - ($2::text)::interval)`, [params.chainId, olderThan]);
+  await client.query(`DELETE FROM stage_processed_blocks WHERE chain_id = $1 AND merged_at IS NOT NULL AND merged_at < now() - ($2::text)::interval`, [params.chainId, olderThan]);
+}
+
 export async function writeNormalizedEvents(client: PgClient, chainId: string, events: NormalizedEvent[], options: WriteNormalizedEventsOptions = {}): Promise<void> {
   for (const event of events) {
     if (event.kind === "pool_created") await upsertPool(client, chainId, event);

@@ -30,6 +30,7 @@ const testConfig: IndexerConfig = {
   ingestCandlesInline: true,
   ingestReserveSnapshotsInline: true,
   ingestAggregatesInline: false,
+  ingestBulkStagingEnabled: false,
   priceProviderName: "provider",
   priceCacheTtlMs: 300_000,
   priceStaleAfterMs: 1_800_000,
