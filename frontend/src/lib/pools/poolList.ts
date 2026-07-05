@@ -4,7 +4,9 @@ export type PoolMetricValue = number | null | undefined;
 
 export type PoolMetrics = {
   tvlUsd?: PoolMetricValue;
+  tvlJuno?: PoolMetricValue;
   volume24hUsd?: PoolMetricValue;
+  volume24hJuno?: PoolMetricValue;
   feeApr?: PoolMetricValue;
   incentivesApr?: PoolMetricValue;
   totalApr?: PoolMetricValue;
@@ -63,8 +65,8 @@ export function poolMatchesSearch(pool: RegistryPool, search: string) {
 
 function metricNumber(pool: RegistryPool, metricsByPair: PoolMetricsByPair, sortKey: PoolListSortKey) {
   const metrics = metricsByPair[pool.pair];
-  if (sortKey === "tvl") return metrics?.tvlUsd;
-  if (sortKey === "volume") return metrics?.volume24hUsd;
+  if (sortKey === "tvl") return metrics?.tvlUsd ?? metrics?.tvlJuno;
+  if (sortKey === "volume") return metrics?.volume24hUsd ?? metrics?.volume24hJuno;
   if (sortKey === "apr") return metrics?.totalApr ?? metrics?.feeApr;
   return undefined;
 }

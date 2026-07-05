@@ -96,6 +96,7 @@ export type IndexerPoolPosition = {
   pairAddress: string;
   lpToken: string | null;
   lpBalance: string;
+  bondedBalance?: string | null;
   shareBps: number;
   valueUsd: number | null;
   valueJuno?: number | null;

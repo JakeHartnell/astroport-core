@@ -14,6 +14,7 @@ export type DataAccessState = {
   isMock: boolean;
   isStale: boolean;
   updatedAt?: string;
+  rangeFallback?: boolean;
   error?: {
     code: DataAccessErrorCode;
     message: string;
@@ -87,6 +88,13 @@ function optionalNumber(value: unknown) {
   return undefined;
 }
 
+function normalizeCandles(rows: IndexerPoolCandle[]) {
+  return rows
+    .map((row) => normalizeCandle(row))
+    .filter((row): row is IndexerPoolCandle => Boolean(row))
+    .sort((left, right) => Date.parse(left.bucketStart) - Date.parse(right.bucketStart));
+}
+
 function toAccessError(error: unknown, fallbackCode: DataAccessErrorCode): DataAccessState["error"] {
   if (error instanceof IndexerRequestError) {
     return { code: error.code === "disabled" ? "disabled" : error.code, message: error.message, status: error.status };
@@ -114,7 +122,9 @@ function normalizePoolMetric(row: Partial<IndexerPoolMetrics> & Record<string, u
   const isStale = updatedAt ? Date.now() - Date.parse(updatedAt) > staleAfterMs : false;
   return [pair, {
     tvlUsd: optionalNumber(row.tvlUsd ?? row.tvl_usd),
+    tvlJuno: optionalNumber(row.tvlJuno ?? row.tvl_juno),
     volume24hUsd: optionalNumber(row.volume24hUsd ?? row.volume_24h_usd ?? row.volume24h_usd),
+    volume24hJuno: optionalNumber(row.volume24hJuno ?? row.volume_24h_juno ?? row.volume24h_juno),
     feeApr: optionalNumber(row.feeApr ?? row.fee_apr),
     incentivesApr: optionalNumber(row.incentivesApr ?? row.incentives_apr),
     totalApr: optionalNumber(row.totalApr ?? row.total_apr),
@@ -128,15 +138,27 @@ function normalizePoolMetric(row: Partial<IndexerPoolMetrics> & Record<string, u
 
 function normalizeProtocolStats(row: Partial<IndexerProtocolStats> & Record<string, unknown>, staleAfterMs: number): ProtocolStats | undefined {
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : undefined;
-  const hasAnyMetric = [row.poolCount ?? row.pool_count, row.tvlUsd ?? row.tvl_usd, row.volume24hUsd ?? row.volume_24h_usd ?? row.volume24h_usd, row.fees24hUsd ?? row.fees_24h_usd ?? row.fees24h_usd].some((value) => optionalNumber(value) !== undefined);
+  const hasAnyMetric = [
+    row.poolCount ?? row.pool_count,
+    row.tvlUsd ?? row.tvl_usd,
+    row.tvlJuno ?? row.tvl_juno,
+    row.volume24hUsd ?? row.volume_24h_usd ?? row.volume24h_usd,
+    row.volume24hJuno ?? row.volume_24h_juno ?? row.volume24h_juno,
+    row.fees24hUsd ?? row.fees_24h_usd ?? row.fees24h_usd,
+    row.fees24hJuno ?? row.fees_24h_juno ?? row.fees24h_juno,
+  ].some((value) => optionalNumber(value) !== undefined);
   if (!hasAnyMetric) return undefined;
   const isMock = Boolean(row.isMock || row.dataSource === "mock");
   return {
     poolCount: optionalNumber(row.poolCount ?? row.pool_count),
     tvlUsd: optionalNumber(row.tvlUsd ?? row.tvl_usd),
+    tvlJuno: optionalNumber(row.tvlJuno ?? row.tvl_juno),
     volume24hUsd: optionalNumber(row.volume24hUsd ?? row.volume_24h_usd ?? row.volume24h_usd),
+    volume24hJuno: optionalNumber(row.volume24hJuno ?? row.volume_24h_juno ?? row.volume24h_juno),
     volume7dUsd: optionalNumber(row.volume7dUsd ?? row.volume_7d_usd ?? row.volume7d_usd),
+    volume7dJuno: optionalNumber(row.volume7dJuno ?? row.volume_7d_juno ?? row.volume7d_juno),
     fees24hUsd: optionalNumber(row.fees24hUsd ?? row.fees_24h_usd ?? row.fees24h_usd),
+    fees24hJuno: optionalNumber(row.fees24hJuno ?? row.fees_24h_juno ?? row.fees24h_juno),
     incentivizedPools: optionalNumber(row.incentivizedPools ?? row.incentivized_pools),
     source: isMock ? "mock" : "indexer",
     isMock,
@@ -158,8 +180,11 @@ function normalizeTopPool(row: Partial<IndexerPoolMetrics> & Record<string, unkn
     label: registryPool?.label ?? symbols ?? String(row.id ?? pair),
     pair,
     tvlUsd: optionalNumber(row.tvlUsd ?? row.tvl_usd),
+    tvlJuno: optionalNumber(row.tvlJuno ?? row.tvl_juno),
     volume24hUsd: optionalNumber(row.volume24hUsd ?? row.volume_24h_usd ?? row.volume24h_usd),
+    volume24hJuno: optionalNumber(row.volume24hJuno ?? row.volume_24h_juno ?? row.volume24h_juno),
     fees24hUsd: optionalNumber(row.fees24hUsd ?? row.fees_24h_usd ?? row.fees24h_usd),
+    fees24hJuno: optionalNumber(row.fees24hJuno ?? row.fees_24h_juno ?? row.fees24h_juno),
     feeApr: optionalNumber(row.feeApr ?? row.fee_apr),
     incentivesApr: optionalNumber(row.incentivesApr ?? row.incentives_apr),
     totalApr: optionalNumber(row.totalApr ?? row.total_apr),
@@ -267,13 +292,21 @@ export async function loadStatsDashboard(pools: RegistryPool[], config = getInde
     const client = createIndexerClient({ baseUrl: config.baseUrl!, timeoutMs: config.timeoutMs });
     const health = await withAttempts(config.retry, () => client.health());
     if (health.status !== "ok") throw new IndexerRequestError(`Indexer health is ${health.status}`, { code: "invalid-response" });
-    const [statsPayload, poolsPayload] = await Promise.all([
+    const [statsResult, poolsResult] = await Promise.allSettled([
       withAttempts(config.retry, () => client.stats()),
       withAttempts(config.retry, () => client.pools({ limit: Math.max(pools.length, 10) })),
     ]);
-    const stats = normalizeProtocolStats(statsPayload as Partial<IndexerProtocolStats> & Record<string, unknown>, config.staleAfterMs);
+    const stats = statsResult.status === "fulfilled"
+      ? normalizeProtocolStats(statsResult.value as Partial<IndexerProtocolStats> & Record<string, unknown>, config.staleAfterMs)
+      : undefined;
     const poolsByPair = new Map(pools.map((pool) => [pool.pair, pool]));
-    const topPools = sortTopPools(poolsPayload.data.map((row) => normalizeTopPool(row, poolsByPair, config.staleAfterMs)).filter((row): row is TopPool => Boolean(row))).slice(0, 5);
+    const topPools = poolsResult.status === "fulfilled"
+      ? sortTopPools(poolsResult.value.data.map((row) => normalizeTopPool(row, poolsByPair, config.staleAfterMs)).filter((row): row is TopPool => Boolean(row))).slice(0, 5)
+      : [];
+    if (statsResult.status === "rejected" || poolsResult.status === "rejected") {
+      const failed = statsResult.status === "rejected" ? statsResult.reason : poolsResult.status === "rejected" ? poolsResult.reason : undefined;
+      return { data: { stats, topPools }, state: fallbackState(toAccessError(failed, "network")) };
+    }
     if (!stats && topPools.length === 0) return { data: empty, state: fallbackState({ code: "empty", message: "Indexer returned no protocol stats or pool metrics" }) };
     const first = stats ?? topPools[0];
     return {
@@ -305,20 +338,35 @@ export async function loadPoolCandles(pool: RegistryPool | undefined, options: P
     const from = new Date(Date.now() - RANGE_MS[range]).toISOString();
     const health = await withAttempts(config.retry, () => client.health());
     if (health.status !== "ok") throw new IndexerRequestError(`Indexer health is ${health.status}`, { code: "invalid-response" });
-    const payload = await withAttempts(config.retry, () => client.poolCandles(pool.pair, {
+    let rangeFallback = false;
+    let payload = await withAttempts(config.retry, () => client.poolCandles(pool.pair, {
       interval,
       from,
       to,
-      baseAsset: options.baseAsset ?? pool.assets[0]?.id,
-      quoteAsset: options.quoteAsset ?? pool.assets[1]?.id,
+      baseAsset: options.baseAsset,
+      quoteAsset: options.quoteAsset,
       limit: options.limit ?? 200,
     }));
-    const candles = payload.data.map((row) => normalizeCandle(row)).filter((row): row is IndexerPoolCandle => Boolean(row));
+    let candles = normalizeCandles(payload.data);
+    if (candles.length === 0) {
+      const latestPayload = await withAttempts(config.retry, () => client.poolCandles(pool.pair, {
+        interval,
+        baseAsset: options.baseAsset,
+        quoteAsset: options.quoteAsset,
+        limit: options.limit ?? 200,
+      }));
+      const latestCandles = normalizeCandles(latestPayload.data);
+      if (latestCandles.length > 0) {
+        payload = latestPayload;
+        candles = latestCandles;
+        rangeFallback = true;
+      }
+    }
     const first = candles.find((candle) => candle.isMock) ?? candles[0];
     const updatedAt = candles.at(-1)?.bucketStart;
     const isMock = Boolean(payload.meta?.isMock || first?.isMock || payload.meta?.dataSource === "mock");
     const isStale = updatedAt ? Date.now() - Date.parse(updatedAt) > config.staleAfterMs : false;
-    return { data: candles, state: { source: isMock ? "mock" : "indexer", isFallback: false, isMock, isStale, updatedAt } };
+    return { data: candles, state: { source: isMock ? "mock" : "indexer", isFallback: false, isMock, isStale, updatedAt, rangeFallback } };
   } catch (error) {
     const accessError = toAccessError(error, "network");
     openCircuit(config, accessError);

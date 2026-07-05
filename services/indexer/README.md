@@ -32,8 +32,8 @@ Copy `.env.example` to `.env` or export variables:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `DATABASE_URL` | `postgres://postgres:postgres@localhost:5432/astroport_indexer` | Postgres connection string. Use host-managed secrets in production. |
-| `JUNO_RPC_URL` | `https://rpc-juno.itastakers.com` | Tendermint RPC endpoint. |
-| `JUNO_REST_URL` | `https://lcd-juno.itastakers.com` | Cosmos REST endpoint used for height-pinned pair pool-state smart queries. |
+| `JUNO_RPC_URL` | `https://juno-rpc.publicnode.com:443` | Tendermint RPC endpoint. |
+| `JUNO_REST_URL` | `https://juno-rest.publicnode.com` | Cosmos REST endpoint used for height-pinned pair pool-state smart queries. |
 | `JUNO_WS_URL` | derived from RPC | WebSocket endpoint for future tailing. |
 | `CHAIN_ID` | `juno-1` | Expected chain id. |
 | `FACTORY_ADDRESS` | deployed Juno v1 factory | Astroport factory contract. |
@@ -57,6 +57,7 @@ Copy `.env.example` to `.env` or export variables:
 | `INGEST_RESERVE_SNAPSHOTS_INLINE` | `true` | Whether the process should run reserve snapshot ingestion inline when that runtime path is enabled. |
 | `INGEST_AGGREGATES_INLINE` | `false` | Whether the process should run aggregate ingestion inline when that runtime path is enabled. |
 | `INGEST_BULK_STAGING_ENABLED` | `false` | Enables the catch-up-only staging-table merge writer when `INDEXER_MODE=catchup` and `INGEST_CANDLES_INLINE=false`. Leave unset/false for the default per-block ordered writer. |
+| `READ_MODEL_REFRESH_INTERVAL_MS` | `15000` | Refresh cadence for API read-model tables used by `/stats`, `/pools`, candles, wallet history, and positions. Set `0` to disable periodic refreshes. |
 | `API_PORT` | `8787` | Port for the HTTP API served by the same production process as the poller. |
 | `PRICE_PROVIDER_BASE_URL` | unset | Reserved for a future provider worker. Current API only serves persisted `token_prices` rows. |
 | `PRICE_PROVIDER_API_KEY` | unset | Reserved for future provider credentials; never commit real keys. |
@@ -146,6 +147,11 @@ Use platform process health plus database/RPC smoke checks for the worker contai
 ```bash
 # Database connectivity from a one-off job/container with the same DATABASE_URL.
 npm run migrate
+
+# Frontend-facing API read models. The main service refreshes these on startup
+# and then every READ_MODEL_REFRESH_INTERVAL_MS; this command is useful for
+# one-off repair or backfill validation.
+npm run refresh:read-models
 
 # Cursor freshness: should move over time once the poller is running.
 psql "$DATABASE_URL" -c "select id, last_height, updated_at from indexer_cursors order by updated_at desc limit 5;"

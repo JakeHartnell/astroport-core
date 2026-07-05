@@ -52,6 +52,17 @@ describe("StatsDashboardView", () => {
     expect(screen.getByText(/top pools unavailable/i)).toBeTruthy();
   });
 
+  it("renders Juno-denominated stats when USD pricing is unavailable", () => {
+    renderDashboard({
+      stats: { poolCount: 2, tvlJuno: 1_250_000, volume24hJuno: 42_500, fees24hJuno: 127.5, incentivizedPools: 1, source: "indexer" },
+      topPools: [{ id: "juno-usdc", label: "JUNO / USDC", pair: "juno1pool", tvlJuno: 1_250_000, volume24hJuno: 42_500, source: "indexer" }],
+    });
+
+    expect(screen.getAllByText("1.3M JUNO").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("42,500 JUNO").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("127.5 JUNO")).toBeTruthy();
+  });
+
   it("uses neutral copy for preview sources", () => {
     renderDashboard({
       stats: { poolCount: 1, tvlUsd: 10, source: "mock", isMock: true, isStale: true, updatedAt: "2026-07-02T12:00:00.000Z" },

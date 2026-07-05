@@ -13,6 +13,7 @@ const performanceEnvNames = [
   "INGEST_RESERVE_SNAPSHOTS_INLINE",
   "INGEST_AGGREGATES_INLINE",
   "INGEST_BULK_STAGING_ENABLED",
+  "READ_MODEL_REFRESH_INTERVAL_MS",
 ] as const;
 
 function withEnv(overrides: Record<string, string | undefined>, run: () => void): void {
@@ -34,6 +35,7 @@ describe("config", () => {
     withEnv({}, () => {
       const config = loadConfig();
       expect(config.chainId).toBe("juno-1");
+      expect(config.databaseUrl).toBe("postgres://postgres:postgres@localhost:5432/astroport_indexer");
       expect(config.startHeight).toBe(DEFAULT_START_HEIGHT);
       expect(config.batchSize).toBeGreaterThan(0);
       expect(config.wsUrl).toContain("websocket");
@@ -48,6 +50,7 @@ describe("config", () => {
       expect(config.ingestReserveSnapshotsInline).toBe(true);
       expect(config.ingestAggregatesInline).toBe(false);
       expect(config.ingestBulkStagingEnabled).toBe(false);
+      expect(config.readModelRefreshIntervalMs).toBe(15_000);
       expect(config.priceProviderName).toBe("provider");
       expect(config.priceCacheTtlMs).toBe(300_000);
       expect(config.priceAllowStale).toBe(true);
@@ -68,6 +71,7 @@ describe("config", () => {
       INGEST_RESERVE_SNAPSHOTS_INLINE: "0",
       INGEST_AGGREGATES_INLINE: "true",
       INGEST_BULK_STAGING_ENABLED: "yes",
+      READ_MODEL_REFRESH_INTERVAL_MS: "0",
     }, () => {
       expect(loadConfig()).toMatchObject({
         indexerMode: "catchup",
@@ -81,6 +85,7 @@ describe("config", () => {
         ingestReserveSnapshotsInline: false,
         ingestAggregatesInline: true,
         ingestBulkStagingEnabled: true,
+        readModelRefreshIntervalMs: 0,
       });
     });
   });

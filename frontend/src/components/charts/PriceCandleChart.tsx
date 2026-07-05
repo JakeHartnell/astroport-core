@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import type { RegistryPool } from "../../config/registry";
-import { dataSourceLabel, type PoolCandleRange } from "../../lib/data-access/indexerFallback";
+import { type PoolCandleRange } from "../../lib/data-access/indexerFallback";
 import type { DataAccessState } from "../../lib/data-access/indexerFallback";
 import type { IndexerCandleInterval, IndexerPoolCandle } from "../../lib/indexer/types";
 import { usePoolCandles } from "../../queries/usePools";
@@ -22,15 +22,24 @@ export function PriceCandleChart({ pool, title = "Price chart", compact = false,
   const [range, setRange] = useState<PoolCandleRange>(compact ? "24h" : "7d");
   const candles = usePoolCandles(pool, { interval, range, limit });
   const describedBy = useId();
-  const sourceLabel = dataSourceLabel(candles.access);
+  const latest = candles.data.at(-1);
+  const first = candles.data[0];
+  const change = first && latest && first.open > 0 ? ((latest.close - first.open) / first.open) * 100 : 0;
 
   return (
     <section className={`price-chart-card ${compact ? "price-chart-compact" : ""}`} aria-labelledby={`${describedBy}-title`}>
       <div className="price-chart-header">
         <div>
           <h3 id={`${describedBy}-title`}>{title}</h3>
-          <p id={describedBy} className="price-chart-subtitle">{pool.assets[0]?.symbol}/{pool.assets[1]?.symbol} OHLC candles · {sourceLabel}</p>
+          <p id={describedBy} className="price-chart-subtitle">{pool.assets[0]?.symbol}/{pool.assets[1]?.symbol} price in {pool.assets[1]?.symbol}</p>
         </div>
+        {candles.data.length > 0 ? (
+          <div className="chart-price-readout">
+            <small>Price ({pool.assets[1]?.symbol ?? "quote"})</small>
+            <strong>{formatPrice(latest?.close)}</strong>
+            <span className={`market-change ${change >= 0 ? "up" : "down"}`}>{formatPercent(change)}</span>
+          </div>
+        ) : null}
       </div>
 
       {showControls ? <ChartControls interval={interval} range={range} onInterval={setInterval} onRange={setRange} /> : null}
@@ -40,7 +49,7 @@ export function PriceCandleChart({ pool, title = "Price chart", compact = false,
       {!candles.isLoading && !candles.access?.error && candles.data.length === 0 ? (
         <EmptyState title="No candles returned">The indexer did not return {interval} candles for {range}; no fake chart is displayed.</EmptyState>
       ) : null}
-      {candles.data.length > 0 ? <SvgCandleChart candles={candles.data} compact={compact} labelId={describedBy} access={candles.access} /> : null}
+      {candles.data.length > 0 ? <SvgCandleChart candles={candles.data} compact={compact} labelId={describedBy} access={candles.access} unit={pool.assets[1]?.symbol ?? "quote"} /> : null}
     </section>
   );
 }
@@ -58,38 +67,76 @@ function ChartControls({ interval, range, onInterval, onRange }: { interval: Ind
   );
 }
 
-function SvgCandleChart({ candles, compact, labelId, access }: { candles: IndexerPoolCandle[]; compact: boolean; labelId: string; access?: DataAccessState }) {
+function SvgCandleChart({ candles, compact, labelId, access, unit }: { candles: IndexerPoolCandle[]; compact: boolean; labelId: string; access?: DataAccessState; unit: string }) {
   const width = compact ? 280 : 760;
   const height = compact ? 86 : 260;
-  const pad = compact ? 8 : 28;
+  const pad = compact ? 8 : 18;
   const geometry = useMemo(() => buildGeometry(candles, width, height, pad), [candles, height, pad, width]);
+  const [hoveredPointKey, setHoveredPointKey] = useState<string | null>(null);
+  const hoveredPoint = geometry.points.find((point) => point.key === hoveredPointKey);
   const last = candles.at(-1);
   const first = candles[0];
-  const change = first && last && first.open > 0 ? ((last.close - first.open) / first.open) * 100 : 0;
-  const changeClass = change >= 0 ? "status-ok" : "status-danger";
 
   return (
     <div className="chart-render" role="img" aria-describedby={labelId} aria-label={`${candles.length} price candles from ${formatDate(first?.bucketStart)} to ${formatDate(last?.bucketStart)}`}>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="price-chart-svg" data-testid="price-candle-svg">
-        <defs>
-          <linearGradient id={`${labelId}-fill`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgba(51, 214, 255, 0.28)" />
-            <stop offset="100%" stopColor="rgba(51, 214, 255, 0.02)" />
-          </linearGradient>
-        </defs>
-        <path d={geometry.areaPath} fill={`url(#${labelId}-fill)`} />
-        <path d={geometry.linePath} fill="none" stroke="var(--juno-color-cyan)" strokeWidth={compact ? 2 : 2.5} vectorEffect="non-scaling-stroke" />
-        {!compact ? geometry.candles.map((candle) => (
-          <g key={candle.key} className={candle.up ? "candle-up" : "candle-down"}>
-            <line x1={candle.x} x2={candle.x} y1={candle.highY} y2={candle.lowY} />
-            <rect x={candle.x - candle.bodyWidth / 2} y={candle.bodyY} width={candle.bodyWidth} height={candle.bodyHeight} rx="1" />
-          </g>
-        )) : null}
-      </svg>
+      <div className={`chart-plot ${compact ? "chart-plot-compact" : ""}`}>
+        {!compact ? (
+          <div className="chart-y-labels" aria-hidden="true">
+            <strong className="chart-y-unit">{unit}</strong>
+            {geometry.yTicks.map((tick) => <span key={`y-${tick.value}`} style={{ top: `${tick.yPct}%` }}>{formatPrice(tick.value)}</span>)}
+          </div>
+        ) : null}
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="price-chart-svg" data-testid="price-candle-svg">
+          <defs>
+            <linearGradient id={`${labelId}-fill`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(255, 123, 124, 0.18)" />
+              <stop offset="100%" stopColor="rgba(255, 123, 124, 0.02)" />
+            </linearGradient>
+          </defs>
+          {!compact ? (
+            <g className="chart-axis" aria-hidden="true">
+              {geometry.yTicks.map((tick) => <line key={`grid-y-${tick.value}`} x1={pad} x2={width - pad} y1={tick.y} y2={tick.y} />)}
+              {geometry.xTicks.map((tick) => <line key={`grid-x-${tick.label}-${tick.x}`} x1={tick.x} x2={tick.x} y1={pad} y2={height - pad} />)}
+              <line className="chart-axis-line" x1={pad} x2={width - pad} y1={height - pad} y2={height - pad} />
+            </g>
+          ) : null}
+          <path className="spark-fill" d={geometry.areaPath} fill={`url(#${labelId}-fill)`} />
+          <path className="spark-line" d={geometry.linePath} />
+          {!compact ? geometry.points.map((point) => (
+            <g
+              key={point.key}
+              className="chart-point-group"
+              tabIndex={0}
+              aria-label={`${formatDate(point.bucketStart)} close ${formatPrice(point.value)} ${unit}`}
+              onBlur={() => setHoveredPointKey(null)}
+              onFocus={() => setHoveredPointKey(point.key)}
+              onMouseEnter={() => setHoveredPointKey(point.key)}
+              onMouseLeave={() => setHoveredPointKey(null)}
+            >
+              <circle className="chart-point-hit" cx={point.x} cy={point.y} r="11" />
+              <circle className="chart-point" cx={point.x} cy={point.y} r="3.4" />
+            </g>
+          )) : null}
+        </svg>
+        {!compact ? (
+          <>
+            {hoveredPoint ? (
+              <div className="chart-hover-labels" aria-hidden="true">
+                <span className={`chart-hover-label ${hoveredPoint.anchor} visible`} style={{ left: `${hoveredPoint.xPct}%`, top: `${hoveredPoint.yPct}%` }}>
+                  <small>{formatAxisDate(hoveredPoint.bucketStart)}</small>
+                  <strong>{formatPrice(hoveredPoint.value)} {unit}</strong>
+                </span>
+              </div>
+            ) : null}
+            <div className="chart-x-labels" aria-hidden="true">
+              {geometry.xTicks.map((tick) => <span key={`x-${tick.label}-${tick.x}`} style={{ left: `${tick.xPct}%` }}>{tick.label}</span>)}
+            </div>
+          </>
+        ) : null}
+      </div>
       <div className="chart-summary">
-        <span>Last <strong>{formatPrice(last?.close)}</strong></span>
-        <span className={`status-pill ${changeClass}`}>{formatPercent(change)}</span>
-        <span>{dataSourceLabel(access)}</span>
+        <span>{candles.length} candles</span>
+        {access?.rangeFallback ? <span>Latest available</span> : null}
       </div>
     </div>
   );
@@ -97,20 +144,43 @@ function SvgCandleChart({ candles, compact, labelId, access }: { candles: Indexe
 
 function buildGeometry(candles: IndexerPoolCandle[], width: number, height: number, pad: number) {
   const prices = candles.flatMap((candle) => [candle.high, candle.low, candle.open, candle.close]).filter((value) => Number.isFinite(value));
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const span = max - min || Math.max(max, 1) * 0.02;
+  const rawMin = Math.min(...prices);
+  const rawMax = Math.max(...prices);
+  const rawSpan = rawMax - rawMin;
+  const padding = rawSpan > 0 ? rawSpan * 0.08 : Math.max(Math.abs(rawMax), 1) * 0.01;
+  const min = rawMin - padding;
+  const max = rawMax + padding;
+  const span = max - min || 1;
   const plotWidth = width - pad * 2;
   const plotHeight = height - pad * 2;
   const y = (price: number) => pad + ((max - price) / span) * plotHeight;
   const x = (index: number) => pad + (candles.length === 1 ? plotWidth / 2 : (index / (candles.length - 1)) * plotWidth);
-  const points = candles.map((candle, index) => ({ x: x(index), y: y(candle.close) }));
+  const pointPct = (value: number, total: number) => (value / total) * 100;
+  const points = candles.map((candle, index) => {
+    const px = x(index);
+    const py = y(candle.close);
+    return {
+      key: `${candle.bucketStart}-${index}`,
+      bucketStart: candle.bucketStart,
+      x: px,
+      y: py,
+      xPct: pointPct(px, width),
+      yPct: pointPct(py, height),
+      value: candle.close,
+      anchor: index === 0 ? "right" : index === candles.length - 1 ? "left" : py < height / 2 ? "below" : "above",
+    };
+  });
   const linePath = points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
   const areaPath = points.length ? `${linePath} L${points.at(-1)!.x.toFixed(2)} ${height - pad} L${points[0].x.toFixed(2)} ${height - pad} Z` : "";
   const bodyWidth = Math.max(3, Math.min(12, plotWidth / Math.max(candles.length, 1) * 0.55));
+  const yTicks = [max, min + span / 2, min].map((value) => ({ value, y: y(value), yPct: pointPct(y(value), height) }));
+  const xTickIndexes = Array.from(new Set([0, Math.floor((candles.length - 1) / 2), candles.length - 1])).filter((index) => index >= 0);
   return {
     linePath,
     areaPath,
+    points,
+    yTicks,
+    xTicks: xTickIndexes.map((index) => ({ x: x(index), xPct: pointPct(x(index), width), label: formatAxisDate(candles[index]?.bucketStart) })),
     candles: candles.map((candle, index) => {
       const openY = y(candle.open);
       const closeY = y(candle.close);
@@ -141,4 +211,9 @@ function formatPercent(value: number) {
 function formatDate(value: string | undefined) {
   if (!value) return "unknown";
   return new Date(value).toLocaleString();
+}
+
+function formatAxisDate(value: string | undefined) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric" }).format(new Date(value));
 }

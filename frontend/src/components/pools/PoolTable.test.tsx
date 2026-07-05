@@ -5,7 +5,7 @@ import type { RegistryPool } from "../../config/registry";
 import { PoolTable } from "./PoolTable";
 
 const mocks = vi.hoisted(() => ({
-  metrics: undefined as Record<string, { tvlUsd?: number; volume24hUsd?: number; totalApr?: number; incentivesApr?: number; incentivized?: boolean }> | undefined,
+  metrics: undefined as Record<string, { tvlUsd?: number | null; tvlJuno?: number | null; volume24hUsd?: number | null; volume24hJuno?: number | null; totalApr?: number; incentivesApr?: number; incentivized?: boolean }> | undefined,
   access: undefined as { source: "indexer" | "mock" | "fallback" | "disabled"; isFallback: boolean; isMock: boolean; isStale: boolean; error?: { code: string; message: string } } | undefined,
   metricRefetch: vi.fn(),
 }));
@@ -143,5 +143,20 @@ describe("PoolTable", () => {
     expect(within(rows[1]).getByText("JUNO / USDC")).toBeTruthy();
     expect(screen.getByText("$500")).toBeTruthy();
     expect(screen.getByText("3%")).toBeTruthy();
+  });
+
+  it("shows and sorts by Juno metrics when USD metrics are unavailable", () => {
+    mocks.metrics = {
+      juno1alpha: { tvlUsd: null, tvlJuno: 10, volume24hUsd: null, volume24hJuno: 5 },
+      juno1beta: { tvlUsd: null, tvlJuno: 500, volume24hUsd: null, volume24hJuno: 20 },
+    };
+    mocks.access = { source: "indexer", isFallback: false, isMock: false, isStale: false };
+    renderPoolTable();
+
+    fireEvent.change(screen.getByLabelText(/sort by/i), { target: { value: "tvl" } });
+    const rows = screen.getAllByRole("row").slice(1);
+    expect(within(rows[0]).getByText("ATOM / USDC")).toBeTruthy();
+    expect(screen.getByText("500 JUNO")).toBeTruthy();
+    expect(screen.getByText("20 JUNO")).toBeTruthy();
   });
 });

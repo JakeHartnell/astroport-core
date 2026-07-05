@@ -1,6 +1,6 @@
 import type { RegistryAsset } from "../../config/registry";
 import type { Asset, ExecuteMsg as PairExecuteMsg } from "../generated/Pair.types";
-import { nativeFunds, toAsset } from "./assetInfo";
+import { nativeFunds, sortNativeFunds, toAsset } from "./assetInfo";
 
 export function createSwapMessage(offerAsset: RegistryAsset, askAsset: RegistryAsset, amount: string, maxSpread: string) {
   const msg = {
@@ -30,7 +30,7 @@ export function createProvideLiquidityMessage(assets: [RegistryAsset, RegistryAs
 
   return {
     msg,
-    funds: [...nativeFunds(assets[0], amounts[0]), ...nativeFunds(assets[1], amounts[1])],
+    funds: sortNativeFunds([...nativeFunds(assets[0], amounts[0]), ...nativeFunds(assets[1], amounts[1])]),
   };
 }
 

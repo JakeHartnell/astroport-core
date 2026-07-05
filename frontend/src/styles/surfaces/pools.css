@@ -117,7 +117,7 @@
 /* APR in coral. */
 .pools-page .pool-metric-apr strong { color: var(--coral); }
 
-/* Pool identity: paired glyphs + display-face label + optional HOT badge on one line. */
+/* Pool identity: paired glyphs + display-face label on one line. */
 .pools-page .pool-title-line {
   display: inline-flex;
   align-items: center;
@@ -129,32 +129,6 @@
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.9rem;
-}
-
-.pool-hot-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 7px;
-  border: 1px solid var(--coral-a20);
-  border-radius: var(--r-sm, 3px);
-  background: var(--coral-a08);
-  color: var(--coral);
-  font-family: var(--font-mono);
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  line-height: 1;
-  flex: none;
-}
-.pool-hot-badge::before {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--coral);
-  box-shadow: var(--glow-soft);
 }
 
 @media (max-width: 860px) {

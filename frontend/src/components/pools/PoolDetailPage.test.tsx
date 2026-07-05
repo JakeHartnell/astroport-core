@@ -5,7 +5,7 @@ import type { RegistryPool } from "../../config/registry";
 import { PoolDetailPage } from "./PoolDetailPage";
 
 const mocks = vi.hoisted(() => ({
-  metrics: undefined as Record<string, { tvlUsd?: number; volume24hUsd?: number; feeApr?: number; incentivesApr?: number; totalApr?: number; incentivized?: boolean }> | undefined,
+  metrics: undefined as Record<string, { tvlUsd?: number | null; tvlJuno?: number | null; volume24hUsd?: number | null; volume24hJuno?: number | null; feeApr?: number; incentivesApr?: number; totalApr?: number; incentivized?: boolean }> | undefined,
   access: undefined as { source: "indexer" | "mock" | "fallback" | "disabled"; isFallback: boolean; isMock: boolean; isStale: boolean; error?: { code: string; message: string } } | undefined,
   reserves: {
     isLoading: false,
@@ -128,5 +128,19 @@ describe("PoolDetailPage", () => {
     expect(screen.getByText(/No candles returned/i)).toBeTruthy();
     expect(screen.getByText(/No swap, add, withdraw, or claim activity was returned/i)).toBeTruthy();
     expect(screen.getByText(/USD value, volume, and APR require market data/i)).toBeTruthy();
+  });
+
+  it("renders Juno-denominated TVL and volume when USD pricing is unavailable", () => {
+    mocks.metrics = {
+      [pool.pair]: { tvlUsd: null, tvlJuno: 1250, volume24hUsd: null, volume24hJuno: 42.5 },
+    };
+    mocks.access = { source: "indexer", isFallback: false, isMock: false, isStale: false };
+
+    renderDetail();
+
+    expect(screen.getByText("1,250 JUNO")).toBeTruthy();
+    expect(screen.getByText("42.5 JUNO")).toBeTruthy();
+    expect(screen.queryByText("Requires pricing data")).toBeNull();
+    expect(screen.queryByText("Requires volume data")).toBeNull();
   });
 });

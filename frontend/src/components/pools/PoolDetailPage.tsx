@@ -67,8 +67,8 @@ export function PoolDetailPage() {
       <section className="pool-detail-section" aria-labelledby="analytics-title">
         <h3 id="analytics-title">Analytics</h3>
         <div className="metrics-grid" aria-label="Pool analytics cards">
-          <MetricCard label="TVL" value={formatUsd(metrics?.tvlUsd) ?? "Metrics unavailable"} hint={metrics?.tvlUsd ? "Updated market data" : "Requires pricing data"} />
-          <MetricCard label="24h volume" value={formatUsd(metrics?.volume24hUsd) ?? "Metrics unavailable"} hint={metrics?.volume24hUsd ? "Updated market data" : "Requires volume data"} />
+          <MetricCard label="TVL" value={formatMarketValue(metrics?.tvlUsd, metrics?.tvlJuno) ?? "Metrics unavailable"} hint={hasMarketValue(metrics?.tvlUsd, metrics?.tvlJuno) ? "Updated market data" : "Requires pricing data"} />
+          <MetricCard label="24h volume" value={formatMarketValue(metrics?.volume24hUsd, metrics?.volume24hJuno) ?? "Metrics unavailable"} hint={hasMarketValue(metrics?.volume24hUsd, metrics?.volume24hJuno) ? "Updated market data" : "Requires volume data"} />
           <MetricCard label="APR" value={formatApr(getPoolTotalApr(metrics)) ?? "Metrics unavailable"} hint={metrics ? aprHint(metrics) : "Requires fee and incentives data"} />
           <MetricCard label="Pool type" value={poolType?.label ?? pool.type.toUpperCase()} hint={`${pool.feeBps} bps fee tier · ${poolType?.feeCopy ?? "pool fee"}`} />
           <MetricCard label="Total share" value={reserves.data ? formatAmount(reserves.data.total_share, 6) : "—"} hint="LP token supply" />
@@ -195,6 +195,19 @@ function formatRatio(value: number) {
 function formatUsd(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+function formatJuno(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)} JUNO`;
+}
+
+function formatMarketValue(usdValue: number | null | undefined, junoValue: number | null | undefined) {
+  return formatUsd(usdValue) ?? formatJuno(junoValue);
+}
+
+function hasMarketValue(usdValue: number | null | undefined, junoValue: number | null | undefined) {
+  return formatMarketValue(usdValue, junoValue) !== undefined;
 }
 
 function formatApr(value: number | null | undefined) {

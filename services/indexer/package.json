@@ -13,6 +13,7 @@
     "migrate": "tsx src/migrate.ts",
     "backfill:candles": "tsx src/backfill-candles.ts",
     "backfill:range": "tsx src/backfill-range.ts",
+    "seed:asset-metadata": "tsx src/seed-asset-metadata.ts",
     "worker:snapshots": "tsx src/snapshot-worker.ts",
     "worker:candles": "tsx src/candle-worker.ts",
     "refresh:read-models": "node dist/src/refresh-read-models.js",

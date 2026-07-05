@@ -102,7 +102,8 @@ describe("indexer fallback data access", () => {
     const fetcher = vi.fn(async (url: string) => {
       if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "mock", isMock: true });
       expect(url).toContain("/pools/juno1pool/candles?interval=1h");
-      expect(url).toContain("baseAsset=ujuno");
+      expect(url).not.toContain("baseAsset=");
+      expect(url).not.toContain("quoteAsset=");
       return json({
         data: [{ poolId: pool.pair, pairAddress: pool.pair, baseAsset: "ujuno", quoteAsset: "ibc%2Fusdc", interval: "1h", bucketStart: "2026-07-02T10:00:00.000Z", open: 1, high: 1.2, low: 0.9, close: 1.1, volume: 10, volumeQuote: 11, tradeCount: 2, dataSource: "mock", isMock: true }],
         pagination: { limit: 200, nextCursor: null },
@@ -117,6 +118,71 @@ describe("indexer fallback data access", () => {
     expect(result.data).toHaveLength(1);
     expect(result.data[0].close).toBe(1.1);
     expect(result.state).toMatchObject({ source: "mock", isMock: true, isStale: true });
+  });
+
+  it("normalizes pool candles to chronological order for chart rendering", async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
+      return json({
+        data: [
+          { poolId: pool.pair, pairAddress: pool.pair, baseAsset: "ujuno", quoteAsset: "ibc/usdc", interval: "1h", bucketStart: "2026-07-02T11:00:00.000Z", open: 1.2, high: 1.3, low: 1.1, close: 1.25, volume: 12, volumeQuote: 15, tradeCount: 2, dataSource: "indexer", isMock: false },
+          { poolId: pool.pair, pairAddress: pool.pair, baseAsset: "ujuno", quoteAsset: "ibc/usdc", interval: "1h", bucketStart: "2026-07-02T10:00:00.000Z", open: 1, high: 1.2, low: 0.9, close: 1.1, volume: 10, volumeQuote: 11, tradeCount: 1, dataSource: "indexer", isMock: false },
+        ],
+        pagination: { limit: 200, nextCursor: null },
+        meta: { dataSource: "indexer", isMock: false },
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadPoolCandles(pool, { interval: "1h" }, config());
+
+    expect(result.data.map((candle) => candle.bucketStart)).toEqual([
+      "2026-07-02T10:00:00.000Z",
+      "2026-07-02T11:00:00.000Z",
+    ]);
+  });
+
+  it("loads latest available candles when the selected candle range is empty", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-07-05T12:00:00.000Z").getTime());
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
+      if (url.includes("from=")) {
+        return json({ data: [], pagination: { limit: 200, nextCursor: null }, meta: { dataSource: "indexer", isMock: false } });
+      }
+      return json({
+        data: [{ poolId: pool.pair, pairAddress: pool.pair, baseAsset: "ujuno", quoteAsset: "ibc/usdc", interval: "1h", bucketStart: "2026-07-05T00:00:00.000Z", open: 1, high: 1.2, low: 0.9, close: 1.1, volume: 10, volumeQuote: 11, tradeCount: 1, dataSource: "indexer", isMock: false }],
+        pagination: { limit: 200, nextCursor: null },
+        meta: { dataSource: "indexer", isMock: false },
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadPoolCandles(pool, { interval: "1h", range: "24h" }, config());
+    const candleUrls = vi.mocked(fetcher).mock.calls.map((call) => String(call[0])).filter((url) => url.includes("/candles"));
+
+    expect(result.data).toHaveLength(1);
+    expect(result.state.rangeFallback).toBe(true);
+    expect(candleUrls).toHaveLength(2);
+    expect(candleUrls[0]).toContain("from=");
+    expect(candleUrls[1]).not.toContain("from=");
+  });
+
+  it("passes explicit candle asset filters through when requested", async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
+      expect(url).toContain("baseAsset=ujuno");
+      expect(url).toContain("quoteAsset=ibc%2Fusdc");
+      return json({
+        data: [{ poolId: pool.pair, pairAddress: pool.pair, baseAsset: "ujuno", quoteAsset: "ibc/usdc", interval: "1h", bucketStart: "2026-07-02T10:00:00.000Z", open: 1, high: 1, low: 1, close: 1, volume: 10, volumeQuote: 10, tradeCount: 1, dataSource: "indexer", isMock: false }],
+        pagination: { limit: 200, nextCursor: null },
+        meta: { dataSource: "indexer", isMock: false },
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadPoolCandles(pool, { interval: "1h", baseAsset: "ujuno", quoteAsset: "ibc/usdc" }, config());
+
+    expect(result.data).toHaveLength(1);
   });
 
   it("keeps empty candle responses empty instead of generating fake chart data", async () => {
@@ -189,6 +255,21 @@ describe("indexer fallback data access", () => {
     expect(result.data.topPools[0]).toMatchObject({ label: "JUNO / USDC", pair: pool.pair, totalApr: 12.5 });
   });
 
+  it("keeps Juno-denominated stats when USD pricing is unavailable", async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
+      if (url.endsWith("/stats")) return json({ poolCount: 3, tvlUsd: null, tvlJuno: 1234, volume24hUsd: null, volume24hJuno: 45, fees24hUsd: null, fees24hJuno: 0.5, incentivizedPools: 1, updatedAt: new Date().toISOString(), dataSource: "indexer", isMock: false });
+      return json({ data: [{ id: "juno-usdc", pair: pool.pair, tvlUsd: null, tvlJuno: 1234, volume24hUsd: null, volume24hJuno: 45, totalApr: 12.5, updatedAt: new Date().toISOString(), dataSource: "indexer", isMock: false }], pagination: { limit: 10, nextCursor: null } });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadStatsDashboard([pool], config());
+
+    expect(result.state).toMatchObject({ source: "indexer", isFallback: false });
+    expect(result.data.stats).toMatchObject({ poolCount: 3, tvlJuno: 1234, volume24hJuno: 45, fees24hJuno: 0.5 });
+    expect(result.data.topPools[0]).toMatchObject({ tvlJuno: 1234, volume24hJuno: 45 });
+  });
+
   it("keeps stats empty when the indexer has no protocol or pool metrics", async () => {
     const fetcher = vi.fn(async (url: string) => {
       if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
@@ -202,6 +283,22 @@ describe("indexer fallback data access", () => {
     expect(result.data).toEqual({ topPools: [] });
     expect(result.state).toMatchObject({ source: "fallback", isFallback: true });
     expect(result.state.error?.code).toBe("empty");
+  });
+
+  it("keeps top pools visible when protocol stats fail", async () => {
+    const fetcher = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) return json({ status: "ok", service: "dex-indexer", dataSource: "indexer", isMock: false });
+      if (url.endsWith("/stats")) return json({ error: "internal_error" }, 500);
+      return json({ data: [{ id: "juno-usdc", pair: pool.pair, tvlUsd: 1234567, volume24hUsd: 45000, totalApr: 12.5, fees24hUsd: 135, updatedAt: new Date().toISOString(), dataSource: "indexer", isMock: false }], pagination: { limit: 10, nextCursor: null } });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetcher);
+
+    const result = await loadStatsDashboard([pool], config());
+
+    expect(result.data.stats).toBeUndefined();
+    expect(result.data.topPools[0]).toMatchObject({ label: "JUNO / USDC", pair: pool.pair, totalApr: 12.5 });
+    expect(result.state).toMatchObject({ source: "fallback", isFallback: true });
+    expect(result.state.error).toMatchObject({ code: "http", status: 500 });
   });
 
   it("labels mock and stale stats dashboard data", async () => {

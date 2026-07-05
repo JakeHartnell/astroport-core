@@ -113,6 +113,7 @@ describe("migration runner", () => {
       "006_candle_jobs.sql",
       "007_bulk_staging.sql",
       "008_read_models.sql",
+      "009_juno_stats_derivation.sql",
     ]);
   });
 

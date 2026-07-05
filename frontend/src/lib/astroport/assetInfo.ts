@@ -1,5 +1,10 @@
 import type { RegistryAsset } from "../../config/registry";
 
+export type NativeFund = {
+  denom: string;
+  amount: string;
+};
+
 export type DexAssetInfo =
   | { native_token: { denom: string } }
   | { token: { contract_addr: string } };
@@ -24,4 +29,12 @@ export function assetLabel(asset: RegistryAsset): string {
 
 export function nativeFunds(asset: RegistryAsset, amount: string) {
   return asset.kind === "cw20" ? [] : [{ denom: asset.id, amount }];
+}
+
+export function sortNativeFunds(funds: NativeFund[]): NativeFund[] {
+  return [...funds].sort((left, right) => {
+    if (left.denom < right.denom) return -1;
+    if (left.denom > right.denom) return 1;
+    return 0;
+  });
 }

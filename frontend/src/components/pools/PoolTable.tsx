@@ -121,7 +121,6 @@ function toggleSort(controls: PoolListControls, sortKey: PoolListSortKey): PoolL
 function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metrics?: PoolMetrics; balances?: readonly WalletBalance[]; access?: DataAccessState }) {
   const lpBalance = getWalletBalanceAmount(balances, pool.lpToken);
   const apr = getPoolTotalApr(metrics);
-  const hot = Boolean(pool.featured) || (typeof apr === "number" && apr >= 40);
   return (
     <Link className="pool-row" role="row" to={`/pools/${pool.pair}`} aria-label={`Open ${pool.label} pool details`}>
       <div className="pool-main" role="cell">
@@ -132,12 +131,11 @@ function PoolRow({ pool, metrics, balances, access }: { pool: RegistryPool; metr
           <div className="pool-title-copy">
             <strong>{pool.label}</strong>
           </div>
-          {hot ? <span className="pool-hot-badge">Hot</span> : null}
         </div>
       </div>
-      <MetricCell label="TVL" value={formatUsd(metrics?.tvlUsd)} metrics={metrics} access={access} />
+      <MetricCell label="TVL" value={formatMarketValue(metrics?.tvlUsd, metrics?.tvlJuno)} metrics={metrics} access={access} />
       <MetricCell label="APR" value={formatApr(apr)} metrics={metrics} access={access} tone="apr" />
-      <MetricCell label="24h vol" value={formatUsd(metrics?.volume24hUsd)} metrics={metrics} access={access} />
+      <MetricCell label="24h vol" value={formatMarketValue(metrics?.volume24hUsd, metrics?.volume24hJuno)} metrics={metrics} access={access} />
       <div className="pool-position" role="cell">
         <span>Your position</span>
         <strong>{lpBalance && lpBalance !== "0" ? formatAmount(lpBalance, 6) : "No LP detected"}</strong>
@@ -159,6 +157,15 @@ function MetricCell({ label, value, metrics, access, tone }: { label: string; va
 function formatUsd(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(value);
+}
+
+function formatJuno(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)} JUNO`;
+}
+
+function formatMarketValue(usdValue: number | null | undefined, junoValue: number | null | undefined) {
+  return formatUsd(usdValue) ?? formatJuno(junoValue);
 }
 
 function formatApr(value: number | null | undefined) {

@@ -4,6 +4,7 @@ import { useQueries } from "@tanstack/react-query";
 import { queryPairPool } from "../../lib/astroport/queries";
 import { formatAmount } from "../../lib/format/amounts";
 import { truncateAddress } from "../../lib/format/addresses";
+import { queryIncentivesPoolState } from "../../lib/incentives";
 import { buildPortfolioSummary, totalLpBalance, type PortfolioPosition } from "../../lib/portfolio/portfolio";
 import { formatPositionSharePercent } from "../../lib/liquidity/position";
 import { useDexRegistry } from "../../queries/useDexRegistry";
@@ -15,6 +16,19 @@ import { EmptyState, ErrorState, Skeleton } from "../common";
 function usd(value: number | null) {
   if (typeof value !== "number" || !Number.isFinite(value)) return "USD price unavailable";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(value);
+}
+
+function juno(value: number | null) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)} JUNO`;
+}
+
+function marketValue(usdValue: number | null, junoValue: number | null) {
+  return typeof usdValue === "number" && Number.isFinite(usdValue) ? usd(usdValue) : (juno(junoValue) ?? "Price unavailable");
+}
+
+function hasMarketValue(usdValue: number | null, junoValue: number | null) {
+  return typeof usdValue === "number" && Number.isFinite(usdValue) || typeof junoValue === "number" && Number.isFinite(junoValue);
 }
 
 function positionStatus(position: PortfolioPosition) {
@@ -54,8 +68,8 @@ function PortfolioPositionCard({ position }: { position: PortfolioPosition }) {
         </div>
         <div className="metric-card">
           <span>Position value</span>
-          <MetricValue muted={position.valueUsd === null}>{usd(position.valueUsd)}</MetricValue>
-          <small>{position.valueUsd === null ? "Not counted in aggregate total" : "Priced with market data"}</small>
+          <MetricValue muted={!hasMarketValue(position.valueUsd, position.valueJuno)}>{marketValue(position.valueUsd, position.valueJuno)}</MetricValue>
+          <small>{hasMarketValue(position.valueUsd, position.valueJuno) ? "Priced with market data" : "Not counted in aggregate total"}</small>
         </div>
       </div>
 
@@ -73,14 +87,14 @@ function PortfolioPositionCard({ position }: { position: PortfolioPosition }) {
             <dt>{asset.symbol} underlying</dt>
             <dd className="quote-detail-value">
               {formatAmount(asset.amount, asset.decimals)} {asset.symbol}
-              {asset.valueUsd === null ? <small> · USD price missing</small> : <small> · {usd(asset.valueUsd)}</small>}
+              {hasMarketValue(asset.valueUsd, asset.valueJuno) ? <small> · {marketValue(asset.valueUsd, asset.valueJuno)}</small> : <small> · price missing</small>}
             </dd>
           </div>
         ))}
         <div>
           <dt>Claimable rewards</dt>
           <dd className="quote-detail-value">
-            {hasRewards ? position.rewards.map((reward) => `${formatAmount(reward.amount, 6)} ${reward.symbol} (${usd(reward.valueUsd)})`).join(", ") : "No claimable rewards reported; incentives contract query is not available in this frontend yet"}
+            {hasRewards ? position.rewards.map((reward) => `${formatAmount(reward.amount, 6)} ${reward.symbol} (${marketValue(reward.valueUsd, reward.valueJuno)})`).join(", ") : "No claimable rewards reported; incentives contract query is not available in this frontend yet"}
           </dd>
         </div>
       </dl>
@@ -108,17 +122,28 @@ export function PortfolioPage() {
       staleTime: 30_000,
     })),
   });
+  const incentivesQueries = useQueries({
+    queries: pools.map((pool) => ({
+      queryKey: ["portfolio-incentives", pool.lpToken, walletAddress],
+      enabled: Boolean(walletAddress),
+      queryFn: () => queryIncentivesPoolState(pool, walletAddress),
+      staleTime: 20_000,
+      retry: false,
+    })),
+  });
   const reservesByPair = Object.fromEntries(pools.map((pool, index) => [pool.pair, reserveQueries[index]?.data]));
+  const incentivesByLpToken = Object.fromEntries(pools.map((pool, index) => [pool.lpToken, incentivesQueries[index]?.data]));
   const preferIndexer = Boolean(indexerData.access && !indexerData.access.isFallback && indexerData.data.positions.length > 0);
   const portfolio = buildPortfolioSummary({
     pools,
     balances: balances.data,
     reservesByPair,
     indexerPositions: indexerData.data.positions,
+    incentivesByLpToken,
     preferIndexer,
   });
   const reserveError = reserveQueries.find((query) => query.isError)?.error;
-  const isLoading = Boolean(walletAddress) && (balances.isLoading || indexerData.isLoading || reserveQueries.some((query) => query.isLoading));
+  const isLoading = Boolean(walletAddress) && (balances.isLoading || indexerData.isLoading || reserveQueries.some((query) => query.isLoading) || incentivesQueries.some((query) => query.isLoading));
   return (
     <section className="panel-page portfolio-page">
       <div className="portfolio-hero">
@@ -161,12 +186,12 @@ export function PortfolioPage() {
           <div className="lp-position-metrics portfolio-total-grid" aria-label="Portfolio totals">
             <div className="metric-card">
               <span>Total LP value</span>
-              <MetricValue muted={portfolio.totalLpValueUsd === null}>{usd(portfolio.totalLpValueUsd)}</MetricValue>
-              <small>{portfolio.missingPositionPrices ? `${portfolio.missingPositionPrices} position(s) missing USD prices` : "All positions priced"}</small>
+              <MetricValue muted={!hasMarketValue(portfolio.totalLpValueUsd, portfolio.totalLpValueJuno)}>{marketValue(portfolio.totalLpValueUsd, portfolio.totalLpValueJuno)}</MetricValue>
+              <small>{portfolio.missingPositionPrices ? `${portfolio.missingPositionPrices} position(s) missing prices` : "All positions priced"}</small>
             </div>
             <div className="metric-card">
               <span>Total claimable</span>
-              <MetricValue muted={portfolio.totalClaimableUsd === null}>{usd(portfolio.totalClaimableUsd)}</MetricValue>
+              <MetricValue muted={portfolio.claimableRewardCount === 0 || !hasMarketValue(portfolio.totalClaimableUsd, portfolio.totalClaimableJuno)}>{portfolio.claimableRewardCount ? marketValue(portfolio.totalClaimableUsd, portfolio.totalClaimableJuno) : "No rewards found"}</MetricValue>
               <small>{portfolio.claimableRewardCount ? `${portfolio.claimableRewardCount} reward row(s)` : "No rewards found"}</small>
             </div>
             <div className="metric-card">

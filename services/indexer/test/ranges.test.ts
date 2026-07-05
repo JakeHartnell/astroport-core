@@ -36,6 +36,7 @@ const testConfig: IndexerConfig = {
   priceStaleAfterMs: 1_800_000,
   priceAllowStale: true,
   priceDevMocks: false,
+  readModelRefreshIntervalMs: 0,
   apiPort: 8787,
 };
 

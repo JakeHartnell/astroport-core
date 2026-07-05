@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { enabledPools } from "../../config/registry";
 import type { DataAccessState } from "../../lib/data-access/indexerFallback";
-import { dashboardUnavailableCopy, formatInteger, formatPercent, formatUsdCompact, type StatsDashboardData, type TopPool } from "../../lib/stats/dashboard";
+import { dashboardUnavailableCopy, formatInteger, formatMarketValue, formatPercent, type StatsDashboardData, type TopPool } from "../../lib/stats/dashboard";
 import { useStatsDashboard } from "../../queries/usePools";
 import { EmptyState, Skeleton } from "../common";
 
@@ -29,9 +29,9 @@ export function StatsDashboardView({ data, access, isLoading = false }: { data: 
       {unavailableCopy ? <p className="stats-notice" role="status">{unavailableCopy}</p> : null}
 
       <div className="stats-metric-grid" aria-label="Protocol metrics">
-        <ProtocolMetric label="Total TVL" value={formatUsdCompact(stats?.tvlUsd)} isLoading={isLoading && !stats} />
-        <ProtocolMetric label="24h volume" value={formatUsdCompact(stats?.volume24hUsd)} isLoading={isLoading && !stats} />
-        <ProtocolMetric label="24h fees" value={formatUsdCompact(stats?.fees24hUsd)} isLoading={isLoading && !stats} />
+        <ProtocolMetric label="Total TVL" value={formatMarketValue(stats?.tvlUsd, stats?.tvlJuno)} isLoading={isLoading && !stats} />
+        <ProtocolMetric label="24h volume" value={formatMarketValue(stats?.volume24hUsd, stats?.volume24hJuno)} isLoading={isLoading && !stats} />
+        <ProtocolMetric label="24h fees" value={formatMarketValue(stats?.fees24hUsd, stats?.fees24hJuno)} isLoading={isLoading && !stats} />
         <ProtocolMetric label="Pools" value={formatInteger(stats?.poolCount)} detail={stats?.incentivizedPools !== undefined ? `${formatInteger(stats.incentivizedPools)} incentivized` : undefined} isLoading={isLoading && !stats} />
       </div>
 
@@ -89,8 +89,8 @@ function TopPoolRow({ pool, access }: { pool: TopPool; access?: DataAccessState 
         <strong>{pool.label}</strong>
         {pool.updatedAt ? <small>Updated {formatUpdatedAt(pool.updatedAt)}</small> : null}
       </div>
-      <div role="cell"><span>{formatUsdCompact(pool.tvlUsd)}</span></div>
-      <div role="cell"><span>{formatUsdCompact(pool.volume24hUsd)}</span></div>
+      <div role="cell"><span>{formatMarketValue(pool.tvlUsd, pool.tvlJuno)}</span></div>
+      <div role="cell"><span>{formatMarketValue(pool.volume24hUsd, pool.volume24hJuno)}</span></div>
       <div role="cell"><span>{formatPercent(pool.totalApr ?? pool.feeApr)}</span></div>
       <div className="pool-actions" role="cell">
         <Link to="/swap">Swap</Link>

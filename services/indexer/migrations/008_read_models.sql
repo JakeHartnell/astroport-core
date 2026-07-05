@@ -37,16 +37,16 @@ CREATE TABLE IF NOT EXISTS pool_volume_windows (
   chain_id TEXT NOT NULL,
   pool_id UUID NOT NULL,
   pair_address TEXT NOT NULL,
-  window TEXT NOT NULL CHECK (window IN ('24h', '7d')),
+  time_window TEXT NOT NULL CHECK (time_window IN ('24h', '7d')),
   volume_usd NUMERIC(38,12),
   volume_juno NUMERIC(38,12),
   fees_usd NUMERIC(38,12),
   fees_juno NUMERIC(38,12),
   swap_count INTEGER NOT NULL DEFAULT 0,
   refreshed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (chain_id, pair_address, window)
+  PRIMARY KEY (chain_id, pair_address, time_window)
 );
-CREATE INDEX IF NOT EXISTS pool_volume_windows_chain_window_idx ON pool_volume_windows (chain_id, window, volume_usd DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS pool_volume_windows_chain_window_idx ON pool_volume_windows (chain_id, time_window, volume_usd DESC NULLS LAST);
 
 CREATE TABLE IF NOT EXISTS pool_candle_buckets (
   chain_id TEXT NOT NULL,
@@ -134,10 +134,40 @@ BEGIN
       p.chain_id, p.id AS pool_id, p.pair_address, p.liquidity_token_address, p.pool_type,
       p.asset_infos, p.created_height, p.created_tx_hash, p.first_seen_at, p.updated_at AS pool_updated_at,
       s.height AS state_height, s.block_time AS state_block_time, COALESCE(s.reserves, '[]'::jsonb) AS reserves,
-      s.total_share, s.tvl_usd, s.tvl_juno, s.volume_24h_usd, s.volume_24h_juno, s.volume_7d_usd, s.volume_7d_juno,
-      s.fees_24h_usd, s.fees_24h_juno, s.source AS snapshot_source, s.created_at AS state_updated_at
+      s.total_share, s.tvl_usd, COALESCE(s.tvl_juno, reserve_values.tvl_juno) AS tvl_juno,
+      s.volume_24h_usd, COALESCE(s.volume_24h_juno, swap_values.volume_24h_juno) AS volume_24h_juno,
+      s.volume_7d_usd, COALESCE(s.volume_7d_juno, swap_values.volume_7d_juno) AS volume_7d_juno,
+      s.fees_24h_usd, COALESCE(s.fees_24h_juno, swap_values.fees_24h_juno) AS fees_24h_juno,
+      s.source AS snapshot_source, s.created_at AS state_updated_at
     FROM pools p
     LEFT JOIN pool_state_snapshots s ON s.pool_id = p.id
+    LEFT JOIN LATERAL (
+      SELECT sum((reserve->>'amount')::numeric) / 1000000 AS tvl_juno
+      FROM jsonb_array_elements(COALESCE(s.reserves, '[]'::jsonb)) reserve
+      WHERE reserve->>'denom' = 'ujuno'
+        AND reserve->>'amount' ~ '^[0-9]+(\.[0-9]+)?$'
+    ) reserve_values ON true
+    LEFT JOIN LATERAL (
+      SELECT
+        sum(CASE
+          WHEN sw.block_time >= now() - interval '24 hours' AND sw.offer_asset = 'ujuno' THEN sw.offer_amount
+          WHEN sw.block_time >= now() - interval '24 hours' AND sw.ask_asset = 'ujuno' THEN sw.return_amount
+          ELSE NULL
+        END) / 1000000 AS volume_24h_juno,
+        sum(CASE
+          WHEN sw.offer_asset = 'ujuno' THEN sw.offer_amount
+          WHEN sw.ask_asset = 'ujuno' THEN sw.return_amount
+          ELSE NULL
+        END) / 1000000 AS volume_7d_juno,
+        sum(CASE
+          WHEN sw.block_time >= now() - interval '24 hours' AND sw.ask_asset = 'ujuno' THEN sw.commission_amount
+          ELSE NULL
+        END) / 1000000 AS fees_24h_juno
+      FROM swaps sw
+      WHERE sw.chain_id = p.chain_id
+        AND sw.pair_address = p.pair_address
+        AND sw.block_time >= now() - interval '7 days'
+    ) swap_values ON true
     WHERE target_chain_id IS NULL OR p.chain_id = target_chain_id
     ORDER BY p.chain_id, p.pair_address, s.height DESC NULLS LAST,
       CASE s.source WHEN 'lcd' THEN 0 WHEN 'event' THEN 1 ELSE 2 END,
@@ -190,31 +220,31 @@ AS $$
 DECLARE affected INTEGER;
 BEGIN
   WITH windows AS (
-    SELECT chain_id, pool_id, pair_address, '24h'::text AS window,
+    SELECT chain_id, pool_id, pair_address, '24h'::text AS time_window,
            volume_24h_usd AS volume_usd, volume_24h_juno AS volume_juno,
            fees_24h_usd AS fees_usd, fees_24h_juno AS fees_juno
     FROM latest_pool_state
     WHERE target_chain_id IS NULL OR chain_id = target_chain_id
     UNION ALL
-    SELECT chain_id, pool_id, pair_address, '7d'::text AS window,
+    SELECT chain_id, pool_id, pair_address, '7d'::text AS time_window,
            volume_7d_usd, volume_7d_juno, NULL::numeric, NULL::numeric
     FROM latest_pool_state
     WHERE target_chain_id IS NULL OR chain_id = target_chain_id
   ), counts AS (
-    SELECT lps.chain_id, lps.pair_address, w.window, count(s.id)::int AS swap_count
+    SELECT lps.chain_id, lps.pair_address, w.time_window, count(s.id)::int AS swap_count
     FROM latest_pool_state lps
-    CROSS JOIN (VALUES ('24h'), ('7d')) AS w(window)
+    CROSS JOIN (VALUES ('24h'), ('7d')) AS w(time_window)
     LEFT JOIN swaps s ON s.chain_id = lps.chain_id
       AND s.pair_address = lps.pair_address
-      AND s.block_time >= now() - CASE w.window WHEN '24h' THEN interval '24 hours' ELSE interval '7 days' END
+      AND s.block_time >= now() - CASE w.time_window WHEN '24h' THEN interval '24 hours' ELSE interval '7 days' END
     WHERE target_chain_id IS NULL OR lps.chain_id = target_chain_id
-    GROUP BY lps.chain_id, lps.pair_address, w.window
+    GROUP BY lps.chain_id, lps.pair_address, w.time_window
   )
-  INSERT INTO pool_volume_windows(chain_id, pool_id, pair_address, window, volume_usd, volume_juno, fees_usd, fees_juno, swap_count, refreshed_at)
-  SELECT w.chain_id, w.pool_id, w.pair_address, w.window, w.volume_usd, w.volume_juno, w.fees_usd, w.fees_juno, COALESCE(c.swap_count, 0), now()
+  INSERT INTO pool_volume_windows(chain_id, pool_id, pair_address, time_window, volume_usd, volume_juno, fees_usd, fees_juno, swap_count, refreshed_at)
+  SELECT w.chain_id, w.pool_id, w.pair_address, w.time_window, w.volume_usd, w.volume_juno, w.fees_usd, w.fees_juno, COALESCE(c.swap_count, 0), now()
   FROM windows w
-  LEFT JOIN counts c ON c.chain_id = w.chain_id AND c.pair_address = w.pair_address AND c.window = w.window
-  ON CONFLICT (chain_id, pair_address, window) DO UPDATE SET
+  LEFT JOIN counts c ON c.chain_id = w.chain_id AND c.pair_address = w.pair_address AND c.time_window = w.time_window
+  ON CONFLICT (chain_id, pair_address, time_window) DO UPDATE SET
     pool_id = EXCLUDED.pool_id,
     volume_usd = EXCLUDED.volume_usd,
     volume_juno = EXCLUDED.volume_juno,

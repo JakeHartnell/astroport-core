@@ -44,13 +44,36 @@ describe("PriceCandleChart", () => {
     });
   });
 
-  it("renders an SVG chart with source and latest price labels", () => {
+  it("renders a swap-style chart with axes, units, and hover point labels", () => {
     render(<PriceCandleChart pool={pool} />);
 
     expect(screen.getByRole("heading", { name: "Price chart" })).toBeTruthy();
     expect(screen.getByTestId("price-candle-svg")).toBeTruthy();
-    expect(screen.getAllByText(/Live data/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("1.3")).toBeTruthy();
+    expect(screen.queryByText(/Live data/i)).toBeNull();
+    expect(screen.getByText(/Price \(USDC\)/i)).toBeTruthy();
+    expect(screen.getAllByText("1.3").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("1.44")).toBeTruthy();
+    expect(screen.queryByText("High")).toBeNull();
+    expect(screen.queryByText("Low")).toBeNull();
+    expect(screen.getAllByText(/Jul 2/i).length).toBeGreaterThanOrEqual(1);
+
+    fireEvent.mouseEnter(screen.getByLabelText(/close 1.3 USDC/i));
+
+    expect(screen.getByText("1.3 USDC")).toBeTruthy();
+  });
+
+  it("labels latest available candles when the selected range is empty", () => {
+    mocks.usePoolCandles.mockReturnValueOnce({
+      data: candles,
+      access: { source: "indexer", isFallback: false, isMock: false, isStale: true, updatedAt: candles[1].bucketStart, rangeFallback: true },
+      isLoading: false,
+      isFetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(<PriceCandleChart pool={pool} />);
+
+    expect(screen.getByText(/Latest available/i)).toBeTruthy();
   });
 
   it("shows honest empty and unavailable states without fake candles", () => {
@@ -67,7 +90,7 @@ describe("PriceCandleChart", () => {
     expect(screen.getByText(/no fake chart is displayed/i)).toBeTruthy();
   });
 
-  it("uses neutral copy for preview candles", () => {
+  it("does not expose mock or stale source labels for preview candles", () => {
     mocks.usePoolCandles.mockReturnValueOnce({
       data: candles.map((candle) => ({ ...candle, dataSource: "mock", isMock: true })),
       access: { source: "mock", isFallback: false, isMock: true, isStale: true, updatedAt: candles[1].bucketStart },
@@ -79,7 +102,7 @@ describe("PriceCandleChart", () => {
 
     expect(screen.queryByText(/mock candles/i)).toBeNull();
     expect(screen.queryByText(/^stale$/i)).toBeNull();
-    expect(screen.getAllByText(/Preview data/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/Preview data/i)).toBeNull();
   });
 
   it("passes selected interval and range to the candle query", () => {

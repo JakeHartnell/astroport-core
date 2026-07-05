@@ -15,4 +15,4 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
-CMD ["sh", "-c", "node dist/src/migrate.js && node dist/src/index.js"]
+CMD ["node", "dist/src/index.js"]
