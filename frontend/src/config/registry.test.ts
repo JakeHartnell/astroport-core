@@ -12,6 +12,7 @@ describe("dex registry", () => {
       "season0-tahab-juno",
       "season0-tahab-tfud",
     ]));
+    expect(dexRegistry.pools.flatMap((pool) => pool.assets).filter((asset) => asset.id.includes("junoagenttest") || ["TWOLF", "TRAW", "TAHAB", "TFUD"].includes(asset.symbol)).every((asset) => Boolean(asset.logoURI))).toBe(true);
   });
 
   it("rejects placeholder contract addresses", () => {

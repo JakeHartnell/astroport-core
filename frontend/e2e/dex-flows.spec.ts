@@ -37,7 +37,7 @@ test.describe("Juno DEX mocked wallet E2E", () => {
     await expect(page.getByRole("button", { name: /^Swap$/ })).toBeEnabled();
     await page.getByRole("button", { name: /^Swap$/ }).click();
 
-    await expect(page.getByText("Transaction succeeded")).toBeVisible();
+    await expect(page.getByText("Swap succeeded")).toBeVisible();
     await expect(page.getByText(/Swap submitted:/).first()).toBeVisible();
     await expect.poll(() => txs(page)).toHaveLength(1);
     const [swap] = await txs(page);
@@ -51,12 +51,14 @@ test.describe("Juno DEX mocked wallet E2E", () => {
     await expect(page.getByRole("heading", { name: "JUNO / Juno Agent Test" }).first()).toBeVisible();
     await expect(page.getByText(/Wallet LP balance/i).first()).toBeVisible();
 
+    await page.getByLabel("Manage liquidity").getByRole("button", { name: /^Add liquidity$/ }).click();
     await fillTokenAmount(page.getByLabel(/JUNO amount/).first(), "1");
     await expect(page.getByText(/Expected LP tokens:/i)).toBeVisible();
-    await page.getByRole("button", { name: /^Add liquidity$/ }).click();
+    await page.getByLabel(/Add liquidity ·/).getByRole("button", { name: /^Add liquidity$/ }).click();
     await expect(page.getByText(/Liquidity transaction broadcast/)).toBeVisible();
+    await page.getByRole("button", { name: "Close modal" }).click();
 
-    await page.locator("#remove-liquidity").scrollIntoViewIfNeeded();
+    await page.getByLabel("Manage liquidity").getByRole("button", { name: /^Remove liquidity$/ }).click();
     await fillTokenAmount(page.getByLabel("LP amount"), "1");
     await expect(page.getByRole("button", { name: /^Withdraw liquidity$/ })).toBeEnabled();
     await page.getByRole("button", { name: /^Withdraw liquidity$/ }).click();
@@ -76,7 +78,7 @@ test.describe("Juno DEX mocked wallet E2E", () => {
     await expect(page.getByRole("heading", { name: "Playwright Wallet balances" })).toBeVisible();
 
     await page.goto(`/pools/${PAIR_ADDRESS}`);
-    await page.locator("#incentives").last().scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: /^Manage incentives$/ }).click();
     await fillTokenAmount(page.getByLabel("Stake LP"), "1");
     await page.getByRole("button", { name: /^Stake LP$/ }).click();
     await expect(page.getByText("Stake LP submitted")).toBeVisible();

@@ -22,7 +22,7 @@ Use live Juno mainnet data to prepare and, only when explicitly authorized, exec
 
 ## Apply safety rules
 
-- Never request, expose, store, or transmit a seed phrase or private key.
+- Never request, expose, store, or transmit wallet recovery words or private keys.
 - Never infer trade authorization from a request to research, quote, explain, diagnose, or review.
 - Never substitute a similarly named token. Compare the complete denom or contract address.
 - Never silently route through an unverified or thin-liquidity pool.
