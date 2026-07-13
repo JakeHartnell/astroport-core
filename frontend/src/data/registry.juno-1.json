@@ -30,7 +30,8 @@
           "kind": "native",
           "id": "factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/junoagenttest202607010323",
           "symbol": "JUNOAGENT-TEST",
-          "decimals": 6
+          "decimals": 6,
+          "logoURI": "/token-logos/season0/junoagent-test.svg"
         }
       ],
       "explorer": "https://ping.pub/juno/wasm/contract/juno1s0klsaye2vuueet7utec6vmyua3pq6wv8ddr2phcrgg8v9gw9r5sqvfefv",
@@ -53,7 +54,8 @@
           "name": "Juno Meme Season 0 Test Wolf",
           "display": "twolf",
           "decimals": 6,
-          "verified": false
+          "verified": false,
+          "logoURI": "/token-logos/season0/twolf.jpg"
         },
         {
           "kind": "native",
@@ -83,7 +85,8 @@
           "name": "Juno Meme Season 0 Test RAW",
           "display": "traw",
           "decimals": 6,
-          "verified": false
+          "verified": false,
+          "logoURI": "/token-logos/season0/traw.jpg"
         },
         {
           "kind": "native",
@@ -113,7 +116,8 @@
           "name": "Juno Meme Season 0 Test AHAB",
           "display": "tahab",
           "decimals": 6,
-          "verified": false
+          "verified": false,
+          "logoURI": "/token-logos/season0/tahab.jpg"
         },
         {
           "kind": "native",
@@ -143,7 +147,8 @@
           "name": "Juno Meme Season 0 Test AHAB",
           "display": "tahab",
           "decimals": 6,
-          "verified": false
+          "verified": false,
+          "logoURI": "/token-logos/season0/tahab.jpg"
         },
         {
           "kind": "native",
@@ -152,7 +157,8 @@
           "name": "Juno Meme Season 0 Test FUD",
           "display": "tfud",
           "decimals": 6,
-          "verified": false
+          "verified": false,
+          "logoURI": "/token-logos/season0/tfud.jpg"
         }
       ],
       "explorer": "https://ping.pub/juno/wasm/contract/juno1mqkzf02hjlkzcnjn0yv9lr6d9j3tmx65qwfs0hcxy5ul4pfequ4s8n9hnn",

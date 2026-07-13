@@ -41,4 +41,18 @@ describe("chain-registry asset metadata", () => {
     expect(curated.name).toBe("Juno");
     expect(() => parseDexRegistry({ chainId: "juno-1", pools: [] })).toThrow(/chainName/);
   });
+
+  it("provides local logos for Season 0 test TokenFactory assets", () => {
+    const expected = [
+      ["factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/junoagenttest202607010323", "/token-logos/season0/junoagent-test.svg"],
+      ["factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/twolf", "/token-logos/season0/twolf.jpg"],
+      ["factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/traw", "/token-logos/season0/traw.jpg"],
+      ["factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/tahab", "/token-logos/season0/tahab.jpg"],
+      ["factory/juno1xsx746x4375g39f9fj07hr7qm0wuf0ksl0an76/tfud", "/token-logos/season0/tfud.jpg"],
+    ] as const;
+
+    for (const [denom, logoURI] of expected) {
+      expect(resolveAssetMetadata(denom).logoURI).toBe(logoURI);
+    }
+  });
 });
